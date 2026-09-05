@@ -2,11 +2,12 @@
 import { useEffect, useState, useCallback } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { useForm, useFieldArray } from 'react-hook-form';
-import { ArrowLeft, Plus, Trash2, CheckCircle, FileInput, CreditCard, Link as LinkIcon } from 'lucide-react';
+import { ArrowLeft, Plus, Trash2, CheckCircle, FileInput, CreditCard, Link as LinkIcon, Truck, Receipt, Check } from 'lucide-react';
 import PageHeader from '../../components/PageHeader';
 import FormField from '../../components/FormField';
 import StatusBadge from '../../components/StatusBadge';
 import PaymentModal from '../../components/PaymentModal';
+import AssignVendorModal from '../../components/AssignVendorModal';
 import { getDocument, createDocument, updateDocument, confirmDocument, convertDocument } from '../../api/documents';
 import { getContacts } from '../../api/contacts';
 import { getProducts } from '../../api/products';
@@ -15,6 +16,14 @@ import { getCoa } from '../../api/coa';
 import toast from 'react-hot-toast';
 
 const fmt = n => `₹${Number(n ?? 0).toLocaleString('en-IN', { minimumFractionDigits: 2 })}`;
+
+const TAX_RATES = [
+  { value: 0,  label: '0% (No Tax)' },
+  { value: 5,  label: '5% (GST 5%)' },
+  { value: 12, label: '12% (GST 12%)' },
+  { value: 18, label: '18% (GST 18% - Standard)' },
+  { value: 28, label: '28% (GST 28% - Luxury)' },
+];
 
 // Labels / routing config per doc type
 const CFG = {
@@ -56,6 +65,8 @@ export default function DocumentForm({ docType }) {
   const [loading, setLoading] = useState(false);
   const [fetching, setFetching] = useState(true);
   const [payModal, setPayModal] = useState(false);
+  const [assignVendorModal, setAssignVendorModal] = useState(false);
+  const [taxRate, setTaxRate] = useState(18); // Default 18% GST
 
   const { register, handleSubmit, control, watch, setValue, reset, formState: { errors } } = useForm({
     defaultValues: { lines: [{ product_id: '', analytic_account_id: '', qty: 1, unit_price: 0 }] },
@@ -63,7 +74,11 @@ export default function DocumentForm({ docType }) {
 
   const { fields, append, remove } = useFieldArray({ control, name: 'lines' });
   const lines = watch('lines');
-  const grandTotal = (lines ?? []).reduce((s, l) => s + (Number(l.qty || 0) * Number(l.unit_price || 0)), 0);
+  
+  // Calculate subtotal, tax, and total
+  const subTotal = (lines ?? []).reduce((s, l) => s + (Number(l.qty || 0) * Number(l.unit_price || 0)), 0);
+  const taxAmount = (subTotal * taxRate) / 100;
+  const calculatedGrandTotal = subTotal + taxAmount;
 
   // Load master data + document
   useEffect(() => {
@@ -84,7 +99,7 @@ export default function DocumentForm({ docType }) {
       }
     }).catch(() => toast.error('Failed to load.'))
     .finally(() => setFetching(false));
-  }, [id]);
+  }, [id, isEdit, reset]);
 
   // Auto-fill unit price when product is selected
   const handleProductChange = (lineIdx, productId) => {
@@ -98,12 +113,16 @@ export default function DocumentForm({ docType }) {
   const onSubmit = async (values) => {
     setLoading(true);
     try {
+      const refString = values.reference 
+        ? `${values.reference} | Tax: ${taxRate}% (${fmt(taxAmount)})`
+        : `Tax: ${taxRate}% (${fmt(taxAmount)})`;
+
       const payload = {
         doc_type: docType,
         contact_id: +values.contact_id,
         doc_date: values.doc_date,
         due_date: values.due_date,
-        reference: values.reference,
+        reference: refString,
         lines: values.lines.map(l => ({
           product_id: +l.product_id,
           analytic_account_id: l.analytic_account_id ? +l.analytic_account_id : undefined,
@@ -132,7 +151,7 @@ export default function DocumentForm({ docType }) {
     const d = await getDocument(id);
     setDoc(d.data.data);
     reset({ ...d.data.data, lines: d.data.data.lines ?? [] });
-  }, [id]);
+  }, [id, reset]);
 
   const handleConfirm = async () => {
     try {
@@ -156,6 +175,7 @@ export default function DocumentForm({ docType }) {
   const handlePaySuccess = (res) => {
     if (res?.document_status) {
       setDoc(prev => ({ ...prev, status: res.document_status, amount_due: 0, amount_paid: prev?.total }));
+      toast.success('Payment approved and recorded!');
     } else {
       loadDoc();
     }
@@ -163,12 +183,15 @@ export default function DocumentForm({ docType }) {
 
   if (fetching) return <div className="flex items-center justify-center h-48 text-gray-400">Loading...</div>;
 
-  const isDraft     = !doc?.status || doc.status === 'draft';
-  const isConfirmed = doc?.status === 'confirmed';
-  const isPaid      = doc?.status === 'paid';
-  const canConfirm  = isEdit && isDraft;
-  const canConvert  = isEdit && isConfirmed && cfg.convertBtn;
-  const canPay      = isEdit && isConfirmed && cfg.showPayment && !isPaid && (doc?.amount_due ?? 0) > 0;
+  const isDraft        = !doc?.status || doc.status === 'draft';
+  const isConfirmed    = doc?.status === 'confirmed';
+  const isPaid         = doc?.status === 'paid';
+  const canConfirm     = isEdit && isDraft;
+  const canConvert     = isEdit && isConfirmed && cfg.convertBtn;
+  const canPay         = isEdit && isConfirmed && cfg.showPayment && !isPaid && (doc?.amount_due ?? 0) > 0;
+  
+  // Accountant can assign vendor to fulfill customer orders once placed/confirmed/paid
+  const canAssignVendor = isEdit && (docType === 'CUSTOMER_INVOICE' || docType === 'SO') && (isConfirmed || isPaid);
 
   const contactOpts  = contacts.map(c => ({ value: c.id, label: c.name }));
   const productOpts  = products.map(p => ({ value: p.id, label: p.name }));
@@ -199,10 +222,21 @@ export default function DocumentForm({ docType }) {
         )}
         {canPay && (
           <button className="btn-primary" onClick={() => setPayModal(true)} id="pay-doc-btn">
-            <CreditCard size={15} /> Pay Now
+            <CreditCard size={15} /> Approve & Record Payment
           </button>
         )}
-        {isPaid && <span className="badge-green text-sm px-3 py-1.5">✓ Paid</span>}
+        {canAssignVendor && (
+          <button
+            type="button"
+            className="btn-secondary text-indigo-600 dark:text-indigo-400 border-indigo-200 dark:border-indigo-800 hover:bg-indigo-50 dark:hover:bg-indigo-950/40"
+            onClick={() => setAssignVendorModal(true)}
+            id="assign-vendor-btn"
+            title="Assign a vendor to procure and fulfill these items"
+          >
+            <Truck size={15} /> Assign to Vendor (Create PO)
+          </button>
+        )}
+        {isPaid && <span className="badge-green text-sm px-3 py-1.5">✓ Payment Approved & Paid</span>}
       </PageHeader>
 
       {/* Status + journal link */}
@@ -226,9 +260,9 @@ export default function DocumentForm({ docType }) {
         </div>
       )}
 
-      {/* Payment summary */}
-      {doc && (doc.amount_paid > 0 || isPaid) && (
-        <div className="flex gap-4 mb-4 text-sm">
+      {/* Payment & Invoice summary */}
+      {doc && (
+        <div className="flex gap-4 mb-4 text-sm flex-wrap">
           <div className="card px-4 py-2 flex gap-2 items-center">
             <span className="text-gray-500">Total:</span>
             <span className="font-semibold">{fmt(doc.total)}</span>
@@ -239,8 +273,16 @@ export default function DocumentForm({ docType }) {
           </div>
           <div className="card px-4 py-2 flex gap-2 items-center">
             <span className="text-gray-500">Due:</span>
-            <span className="font-semibold text-amber-600">{fmt(doc.amount_due)}</span>
+            <span className={`font-semibold ${doc.amount_due > 0 ? 'text-amber-600' : 'text-gray-500'}`}>
+              {fmt(doc.amount_due)}
+            </span>
           </div>
+          {isPaid && (
+            <div className="card px-4 py-2 flex gap-2 items-center border-green-200 dark:border-green-800 bg-green-50/50 dark:bg-green-950/20 text-green-700 dark:text-green-300">
+              <Check size={14} className="text-green-600" />
+              <span className="text-xs font-medium">Accountant Approved</span>
+            </div>
+          )}
         </div>
       )}
 
@@ -248,13 +290,13 @@ export default function DocumentForm({ docType }) {
       <div className="card p-6">
         <form id="doc-form" onSubmit={handleSubmit(onSubmit)} noValidate>
           {/* Header fields */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 mb-6">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
             <FormField label={cfg.contactLabel} name="contact_id" type="select" register={register}
               options={contactOpts} error={errors.contact_id}
               {...register('contact_id', { required: `${cfg.contactLabel} is required` })} />
             <FormField label="Date" name="doc_date" type="date" register={register} {...register('doc_date')} />
             <FormField label="Due Date" name="due_date" type="date" register={register} {...register('due_date')} />
-            <FormField label="Reference" name="reference" register={register} placeholder="External ref..." {...register('reference')} />
+            <FormField label="Reference / Notes" name="reference" register={register} placeholder="External ref or order ID..." {...register('reference')} />
           </div>
 
           {/* Line items */}
@@ -279,7 +321,7 @@ export default function DocumentForm({ docType }) {
                     <th>Analytic</th>
                     <th>Qty</th>
                     <th>Unit Price</th>
-                    <th>Total</th>
+                    <th>Subtotal</th>
                     {isDraft && <th></th>}
                   </tr>
                 </thead>
@@ -339,17 +381,55 @@ export default function DocumentForm({ docType }) {
                       </tr>
                     );
                   })}
-                  {/* Grand total row */}
-                  <tr className="bg-gray-50 dark:bg-gray-800/60">
-                    <td colSpan={(docType === 'VENDOR_BILL' || docType === 'CUSTOMER_INVOICE') ? 6 : 5}
-                      className="text-right text-sm font-semibold text-gray-700 dark:text-gray-300 pr-2">
-                      Grand Total
-                    </td>
-                    <td className="text-sm font-bold text-gray-900 dark:text-gray-100">{fmt(doc?.total ?? grandTotal)}</td>
-                    {isDraft && <td />}
-                  </tr>
                 </tbody>
               </table>
+            </div>
+
+            {/* Tax & Grand Total Summary Box */}
+            <div className="mt-4 p-4 rounded-xl bg-gray-50 dark:bg-gray-800/50 border border-gray-100 dark:border-gray-800 max-w-sm ml-auto space-y-2">
+              <div className="flex justify-between text-sm text-gray-600 dark:text-gray-400">
+                <span>Items Subtotal:</span>
+                <span className="font-medium text-gray-900 dark:text-gray-100">{fmt(subTotal)}</span>
+              </div>
+
+              {/* Tax selection (editable in draft) */}
+              <div className="flex items-center justify-between text-sm text-gray-600 dark:text-gray-400">
+                <div className="flex items-center gap-1.5">
+                  <Receipt size={14} className="text-primary-500" />
+                  <span>Tax / GST:</span>
+                </div>
+                {isDraft ? (
+                  <select
+                    className="input text-xs py-0.5 px-2 w-36"
+                    value={taxRate}
+                    onChange={(e) => setTaxRate(Number(e.target.value))}
+                  >
+                    {TAX_RATES.map((t) => (
+                      <option key={t.value} value={t.value}>
+                        {t.label}
+                      </option>
+                    ))}
+                  </select>
+                ) : (
+                  <span className="font-medium text-gray-900 dark:text-gray-100">
+                    {taxRate}% ({fmt(taxAmount)})
+                  </span>
+                )}
+              </div>
+
+              {taxRate > 0 && isDraft && (
+                <div className="flex justify-between text-xs text-gray-500">
+                  <span>Calculated Tax:</span>
+                  <span>+{fmt(taxAmount)}</span>
+                </div>
+              )}
+
+              <div className="pt-2 border-t border-gray-200 dark:border-gray-700 flex justify-between text-base font-bold text-gray-900 dark:text-gray-100">
+                <span>Total Amount:</span>
+                <span className="text-primary-600 dark:text-primary-400">
+                  {fmt(doc?.total ?? calculatedGrandTotal)}
+                </span>
+              </div>
             </div>
           </div>
         </form>
@@ -361,6 +441,16 @@ export default function DocumentForm({ docType }) {
         onClose={() => setPayModal(false)}
         document={doc}
         onSuccess={handlePaySuccess}
+      />
+
+      {/* Assign Vendor Modal (Accountant selects which vendor fulfills the product) */}
+      <AssignVendorModal
+        isOpen={assignVendorModal}
+        onClose={() => setAssignVendorModal(false)}
+        sourceDocument={doc}
+        onAssigned={() => {
+          loadDoc();
+        }}
       />
     </div>
   );
