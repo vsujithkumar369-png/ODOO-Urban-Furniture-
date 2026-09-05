@@ -36,8 +36,8 @@ import BudgetReport from './pages/reports/BudgetReport';
 // Portal
 import Portal from './pages/portal/Portal';
 
-const STAFF = ['admin', 'accountant'];
-const ALL   = ['admin', 'accountant', 'contact'];
+const STAFF = ['admin'];
+const ALL   = ['admin', 'contact'];
 
 export default function App() {
   return (

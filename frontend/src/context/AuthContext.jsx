@@ -22,12 +22,11 @@ export function AuthProvider({ children }) {
     localStorage.removeItem('uf-user');
   }, []);
 
-  const isAdmin      = user?.role === 'admin';
-  const isAccountant = user?.role === 'accountant' || user?.role === 'admin';
-  const isContact    = user?.role === 'contact';
+  const isAdmin   = user?.role === 'admin';
+  const isContact = user?.role === 'contact';
 
   return (
-    <AuthContext.Provider value={{ user, token, login, logout, isAdmin, isAccountant, isContact }}>
+    <AuthContext.Provider value={{ user, token, login, logout, isAdmin, isContact }}>
       {children}
     </AuthContext.Provider>
   );
