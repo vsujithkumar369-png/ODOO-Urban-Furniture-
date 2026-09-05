@@ -213,18 +213,23 @@ async function initDatabase() {
     }
 
 
-    // Seed default Admin & Accountant users if users table is empty
-    const usersCount = await client.query('SELECT COUNT(*) FROM users');
-    if (parseInt(usersCount.rows[0].count) === 0) {
-      const bcrypt = require('bcrypt');
-      const adminHash = await bcrypt.hash('Admin@123', 12);
-      const accHash = await bcrypt.hash('Accountant@123', 12);
+    // Ensure default core roles & demo portal accounts exist
+    const demoAccounts = [
+      { name: 'System Admin', login_id: 'admin1', email: 'admin@urbanfurniture.com', pwd: 'admin123', role: 'admin', contact_id: null },
+      { name: 'Staff Accountant', login_id: 'acc001', email: 'accountant@urbanfurniture.com', pwd: 'acc123', role: 'accountant', contact_id: null },
+      { name: 'Demo Customer', login_id: 'cust01', email: 'cust01@urbanfurniture.com', pwd: 'portal123', role: 'contact', contact_id: 1 },
+      { name: 'Demo Vendor', login_id: 'vend01', email: 'vend01@urbanfurniture.com', pwd: 'portal123', role: 'contact', contact_id: 9 },
+    ];
 
-      await client.query(`
-        INSERT INTO users (name, login_id, email, password, role, contact_id) VALUES
-        ('System Admin', 'admin_user', 'admin@urbanfurniture.com', $1, 'admin', NULL),
-        ('Primary Accountant', 'acc_user', 'accountant@urbanfurniture.com', $2, 'accountant', NULL);
-      `, [adminHash, accHash]);
+    for (const d of demoAccounts) {
+      const uRes = await client.query('SELECT id FROM users WHERE login_id = $1 OR email = $2', [d.login_id, d.email]);
+      if (uRes.rows.length === 0) {
+        await client.query(
+          `INSERT INTO users (name, login_id, email, password, role, contact_id)
+           VALUES ($1, $2, $3, $4, $5, $6)`,
+          [d.name, d.login_id, d.email, d.pwd, d.role, d.contact_id]
+        );
+      }
     }
 
     console.log('✅ PostgreSQL database ready.');

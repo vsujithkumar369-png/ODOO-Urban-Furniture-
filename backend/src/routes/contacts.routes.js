@@ -99,7 +99,7 @@ router.post('/', requireRole([ROLES.ADMIN, ROLES.ACCOUNTANT]), async (req, res) 
     if (contactEmail) {
       const userCheck = await pool.query('SELECT id FROM users WHERE LOWER(email) = LOWER($1) OR contact_id = $2', [contactEmail, newContact.id]);
       if (userCheck.rows.length === 0) {
-        tempPassword = `Portal@${Math.random().toString(36).slice(-6)}`;
+        tempPassword = req.body.portal_password || 'portal123';
         const hashedPass = await bcrypt.hash(tempPassword, 12);
         const safeBase = contactEmail.includes('@') ? contactEmail.split('@')[0].replace(/[^a-zA-Z0-9_]/g, '_') : `user_${newContact.id}`;
         const loginId = safeBase.length < 6 ? `${safeBase}_${newContact.id}`.slice(0, 12) : safeBase.slice(0, 12);

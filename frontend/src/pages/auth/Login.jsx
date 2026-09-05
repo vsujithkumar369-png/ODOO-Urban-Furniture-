@@ -3,7 +3,7 @@ import { useState, useEffect } from 'react';
 import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
 import { login as loginApi, signup as signupApi } from '../../api/auth';
-import { Eye, EyeOff, LogIn, UserPlus, Shield, Briefcase, Info } from 'lucide-react';
+import { Eye, EyeOff, LogIn, UserPlus, Shield, Briefcase, Info, UserCheck, Truck, Sparkles } from 'lucide-react';
 import toast from 'react-hot-toast';
 
 const PWD_RE = /^(?=.*[a-z])(?=.*[A-Z])(?=.*[^a-zA-Z0-9]).{8,}$/;
@@ -73,7 +73,15 @@ export default function Login() {
 
       login(token, user);
       toast.success(`Welcome back, ${user.name}!`);
-      navigate(user.role === 'contact' ? '/portal' : '/dashboard');
+      if (user.role === 'contact') {
+        if (user.contact_type === 'VENDOR') {
+          navigate('/vendor-portal');
+        } else {
+          navigate('/portal');
+        }
+      } else {
+        navigate('/dashboard');
+      }
     } catch (err) {
       const msg = err.response?.data?.error?.message ?? 'Invalid Login Id or Password';
       setLoginError('root', { message: msg });
@@ -161,11 +169,46 @@ export default function Login() {
                 </p>
               </div>
 
-              {/* Notice for Customers */}
+              {/* Quick 1-Click Demo Logins */}
+              <div className="mb-4">
+                <div className="flex items-center justify-between mb-2">
+                  <span className="text-[11px] font-semibold tracking-wide uppercase text-gray-500 dark:text-gray-400 flex items-center gap-1">
+                    <Sparkles size={12} className="text-amber-500" />
+                    1-Click Demo Login
+                  </span>
+                  <span className="text-[10px] text-gray-400">Click to autofill</span>
+                </div>
+                <div className="grid grid-cols-2 gap-2">
+                  {[
+                    { role: 'Admin', id: 'admin1', pwd: 'admin123', desc: 'Full ERP Access', color: 'bg-purple-50 hover:bg-purple-100 text-purple-700 border-purple-200 dark:bg-purple-950/40 dark:text-purple-300 dark:border-purple-800' },
+                    { role: 'Accountant', id: 'acc001', pwd: 'acc123', desc: 'Financial Books', color: 'bg-blue-50 hover:bg-blue-100 text-blue-700 border-blue-200 dark:bg-blue-950/40 dark:text-blue-300 dark:border-blue-800' },
+                    { role: 'Customer', id: 'cust01', pwd: 'portal123', desc: 'Invoices & Pay', color: 'bg-emerald-50 hover:bg-emerald-100 text-emerald-700 border-emerald-200 dark:bg-emerald-950/40 dark:text-emerald-300 dark:border-emerald-800' },
+                    { role: 'Vendor', id: 'vend01', pwd: 'portal123', desc: 'Orders & Bills', color: 'bg-amber-50 hover:bg-amber-100 text-amber-700 border-amber-200 dark:bg-amber-950/40 dark:text-amber-300 dark:border-amber-800' },
+                  ].map(d => (
+                    <button
+                      key={d.id}
+                      type="button"
+                      onClick={() => {
+                        setLoginValue('login_id', d.id, { shouldValidate: true });
+                        setLoginValue('password', d.pwd, { shouldValidate: true });
+                      }}
+                      className={`p-2 rounded-lg border text-left transition-all ${d.color} flex flex-col justify-between`}
+                    >
+                      <div className="flex items-center justify-between">
+                        <span className="text-xs font-bold">{d.role}</span>
+                        <span className="text-[10px] opacity-75 font-mono">{d.id}</span>
+                      </div>
+                      <span className="text-[10px] opacity-80 mt-0.5">{d.desc}</span>
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              {/* Notice for Portal Contacts */}
               <div className="mb-4 p-3 rounded-lg bg-blue-50 dark:bg-blue-950/30 border border-blue-200 dark:border-blue-800/60 flex items-start gap-2.5">
                 <Info size={16} className="text-blue-600 dark:text-blue-400 shrink-0 mt-0.5" />
                 <p className="text-xs text-blue-800 dark:text-blue-300 leading-relaxed">
-                  <strong>Customer / Client?</strong> You do not need to register. Your Login ID is generated and provided by your accountant upon order placement.
+                  <strong>Portal Users (Customer / Vendor):</strong> Sign in with your assigned Login ID (or contact email) and password <code>portal123</code>.
                 </p>
               </div>
 
