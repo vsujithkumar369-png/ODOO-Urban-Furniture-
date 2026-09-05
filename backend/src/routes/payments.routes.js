@@ -1,14 +1,15 @@
+// backend/src/routes/payments.routes.js
 const express = require('express');
-const { create, getByDocumentId } = require('../controllers/payments.controller');
-const { authenticate } = require('../middleware/auth');
+const { authenticateToken } = require('../middleware/auth');
+const paymentsController = require('../controllers/payments.controller');
 
 const router = express.Router();
+router.use(authenticateToken);
 
-// Require authenticate
-router.use(authenticate);
+// GET /api/payments - List payments
+router.get('/', paymentsController.getPayments);
 
-// contact-role users can only pay their own CUSTOMER_INVOICE docs (enforced in controller)
-router.post('/', create);
-router.get('/', getByDocumentId);
+// POST /api/payments - Create payment (Supports internal users and portal contact users)
+router.post('/', paymentsController.createPayment);
 
 module.exports = router;

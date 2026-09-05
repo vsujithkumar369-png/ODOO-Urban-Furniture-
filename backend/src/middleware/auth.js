@@ -1,34 +1,75 @@
+// backend/src/middleware/auth.js
 const jwt = require('jsonwebtoken');
-const { errorResponse } = require('../utils/errors');
 
-const authenticate = (req, res, next) => {
-  const authHeader = req.headers.authorization;
-  if (!authHeader || !authHeader.startsWith('Bearer ')) {
-    return errorResponse(res, 401, 'UNAUTHORIZED', 'Missing or invalid authentication token');
+const JWT_SECRET = process.env.JWT_SECRET || 'urban-furniture-secret-key-2026';
+
+function authenticateToken(req, res, next) {
+  const authHeader = req.headers['authorization'];
+  const token = authHeader && authHeader.split(' ')[1];
+
+  if (!token) {
+    return res.status(401).json({
+      error: { code: 'UNAUTHORIZED', message: 'Access token required' }
+    });
   }
 
-  const token = authHeader.split(' ')[1];
   try {
-    const decoded = jwt.verify(token, process.env.JWT_SECRET || 'secret');
-    req.user = decoded;
+    const user = jwt.verify(token, JWT_SECRET);
+    req.user = user;
     next();
-  } catch (error) {
-    return errorResponse(res, 401, 'UNAUTHORIZED', 'Invalid or expired authentication token');
+  } catch (err) {
+    return res.status(401).json({
+      error: { code: 'UNAUTHORIZED', message: 'Invalid or expired token' }
+    });
   }
-};
+}
 
-const requireRole = (...roles) => {
+function requireRole(roles) {
   return (req, res, next) => {
-    if (!req.user || !req.user.role) {
-      return errorResponse(res, 403, 'FORBIDDEN', 'User role not found');
+    if (!req.user) {
+      return res.status(401).json({
+        error: { code: 'UNAUTHORIZED', message: 'Authentication required' }
+      });
     }
-    
-    if (!roles.includes(req.user.role)) {
-      return errorResponse(res, 403, 'FORBIDDEN', 'You do not have permission to perform this action');
+
+    const allowedRoles = Array.isArray(roles) ? roles : [roles];
+    if (!allowedRoles.includes(req.user.role)) {
+      return res.status(403).json({
+        error: { code: 'FORBIDDEN', message: 'You do not have permission to access this resource' }
+      });
     }
-    
     next();
   };
+}
+
+const ROLES = {
+  ADMIN: 'admin',
+  ACCOUNTANT: 'accountant',
+  CONTACT: 'contact'
 };
 
-module.exports = { authenticate, requireRole };
+/**
+ * Guard to block portal Contact users from internal master data endpoints.
+ */
+function allowInternalUsers(req, res, next) {
+  if (!req.user) {
+    return res.status(401).json({
+      error: { code: 'UNAUTHORIZED', message: 'Authentication required' }
+    });
+  }
+  if (req.user.role === ROLES.CONTACT) {
+    return res.status(403).json({
+      error: { code: 'FORBIDDEN', message: 'Contact users are not authorized to access internal master data APIs' }
+    });
+  }
+  next();
+}
+
+module.exports = {
+  JWT_SECRET,
+  ROLES,
+  authenticateToken,
+  authenticate: authenticateToken, // Alias for backward compatibility if needed
+  requireRole,
+  allowInternalUsers
+};

@@ -32,9 +32,11 @@ import { JournalEntriesList, JournalEntryDetail } from './pages/accounting/Journ
 import ProfitLoss   from './pages/reports/ProfitLoss';
 import BalanceSheet from './pages/reports/BalanceSheet';
 import BudgetReport from './pages/reports/BudgetReport';
+import VendorReports from './pages/reports/VendorReports';
 
 // Portal
 import Portal from './pages/portal/Portal';
+import VendorPortal from './pages/portal/VendorPortal';
 
 const STAFF = ['admin'];
 const ALL   = ['admin', 'contact'];
@@ -108,9 +110,11 @@ export default function App() {
         <Route path="/reports/profit-loss"   element={<ProtectedRoute roles={STAFF}><ProfitLoss /></ProtectedRoute>} />
         <Route path="/reports/balance-sheet" element={<ProtectedRoute roles={STAFF}><BalanceSheet /></ProtectedRoute>} />
         <Route path="/reports/budget"        element={<ProtectedRoute roles={STAFF}><BudgetReport /></ProtectedRoute>} />
+        <Route path="/vendor-reports"        element={<ProtectedRoute roles={STAFF}><VendorReports /></ProtectedRoute>} />
 
         {/* Portal */}
-        <Route path="/portal" element={<ProtectedRoute roles={['contact']}><Portal /></ProtectedRoute>} />
+        <Route path="/portal"        element={<ProtectedRoute roles={['contact', 'admin', 'accountant']}><Portal /></ProtectedRoute>} />
+        <Route path="/vendor-portal" element={<ProtectedRoute roles={['contact', 'admin', 'accountant']}><VendorPortal /></ProtectedRoute>} />
       </Route>
 
       {/* Catch-all */}

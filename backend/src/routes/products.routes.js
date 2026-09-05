@@ -1,15 +1,26 @@
+// backend/src/routes/products.routes.js
 const express = require('express');
-const { getAll, getById, create, update } = require('../controllers/products.controller');
-const { authenticate, requireRole } = require('../middleware/auth');
+const { authenticateToken, requireRole, allowInternalUsers, ROLES } = require('../middleware/auth');
+const productsController = require('../controllers/products.controller');
 
 const router = express.Router();
 
-router.use(authenticate);
-router.use(requireRole('admin'));
+router.use(authenticateToken);
+router.use(allowInternalUsers);
 
-router.get('/', getAll);
-router.get('/:id', getById);
-router.post('/', create);
-router.put('/:id', update);
+// GET /api/products - List all products
+router.get('/', productsController.getProducts);
+
+// GET /api/products/:id - Get product details
+router.get('/:id', productsController.getProductById);
+
+// POST /api/products - Create product (ADMIN & ACCOUNTANT)
+router.post('/', requireRole([ROLES.ADMIN, ROLES.ACCOUNTANT]), productsController.createProduct);
+
+// PUT /api/products/:id - Update product (ADMIN & ACCOUNTANT)
+router.put('/:id', requireRole([ROLES.ADMIN, ROLES.ACCOUNTANT]), productsController.updateProduct);
+
+// DELETE /api/products/:id - Delete product (ADMIN & ACCOUNTANT)
+router.delete('/:id', requireRole([ROLES.ADMIN, ROLES.ACCOUNTANT]), productsController.deleteProduct);
 
 module.exports = router;

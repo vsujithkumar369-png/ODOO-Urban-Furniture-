@@ -1,20 +1,27 @@
+// backend/src/routes/documents.routes.js
 const express = require('express');
-const { getAll, getById, create, update, confirm, convert } = require('../controllers/documents.controller');
-const { authenticate, requireRole } = require('../middleware/auth');
+const { authenticateToken, requireRole, ROLES } = require('../middleware/auth');
+const documentsController = require('../controllers/documents.controller');
 
 const router = express.Router();
+router.use(authenticateToken);
 
-router.use(authenticate);
+// GET /api/documents - List documents (Supports internal & portal contact users)
+router.get('/', documentsController.getDocuments);
 
-// GET routes available to admin and contact roles
-router.get('/', getAll);
-router.get('/:id', getById);
+// GET /api/documents/:id - Get single document details
+router.get('/:id', documentsController.getDocumentById);
 
-// Everything else admin only
-router.use(requireRole('admin'));
-router.post('/', create);
-router.put('/:id', update);
-router.post('/:id/confirm', confirm);
-router.post('/:id/convert', convert);
+// POST /api/documents - Create document (ADMIN & ACCOUNTANT)
+router.post('/', requireRole([ROLES.ADMIN, ROLES.ACCOUNTANT]), documentsController.createDocument);
+
+// PUT /api/documents/:id - Update draft document (ADMIN & ACCOUNTANT)
+router.put('/:id', requireRole([ROLES.ADMIN, ROLES.ACCOUNTANT]), documentsController.updateDocument);
+
+// POST /api/documents/:id/confirm - Confirm document & post journal entry (ADMIN & ACCOUNTANT)
+router.post('/:id/confirm', requireRole([ROLES.ADMIN, ROLES.ACCOUNTANT]), documentsController.confirmDocument);
+
+// POST /api/documents/:id/convert - Convert PO->Bill or SO->Invoice (ADMIN & ACCOUNTANT)
+router.post('/:id/convert', requireRole([ROLES.ADMIN, ROLES.ACCOUNTANT]), documentsController.convertDocument);
 
 module.exports = router;

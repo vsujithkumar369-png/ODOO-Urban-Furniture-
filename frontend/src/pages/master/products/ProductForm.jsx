@@ -4,6 +4,7 @@ import { useForm } from 'react-hook-form';
 import { ArrowLeft, Save } from 'lucide-react';
 import PageHeader from '../../../components/PageHeader';
 import FormField from '../../../components/FormField';
+import ImageUpload from '../../../components/ImageUpload';
 import { getProduct, createProduct, updateProduct } from '../../../api/products';
 import toast from 'react-hot-toast';
 
@@ -18,7 +19,7 @@ export default function ProductForm() {
   const navigate = useNavigate();
   const isEdit = !!id;
   const [loading, setLoading] = useState(false);
-  const { register, handleSubmit, reset, formState: { errors } } = useForm();
+  const { register, handleSubmit, reset, setValue, watch, formState: { errors } } = useForm();
 
   useEffect(() => {
     if (!isEdit) return;
@@ -66,7 +67,12 @@ export default function ProductForm() {
             {...register('cost', { min: 0 })}
           />
           <div className="sm:col-span-2">
-            <FormField label="Image URL" name="image_url" register={register} placeholder="https://..." {...register('image_url')} />
+            <ImageUpload
+              label="Product Photo"
+              value={watch('image_url')}
+              onChange={(val) => setValue('image_url', val, { shouldDirty: true })}
+              helperText="Click the + to select a furniture photo from your device"
+            />
           </div>
         </form>
       </div>

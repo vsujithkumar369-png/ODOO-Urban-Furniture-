@@ -1,15 +1,26 @@
+// backend/src/routes/journals.routes.js
 const express = require('express');
-const { getAll, getById, create, update } = require('../controllers/journals.controller');
-const { authenticate, requireRole } = require('../middleware/auth');
+const { authenticateToken, requireRole, allowInternalUsers, ROLES } = require('../middleware/auth');
+const journalsController = require('../controllers/journals.controller');
 
 const router = express.Router();
 
-router.use(authenticate);
-router.use(requireRole('admin'));
+router.use(authenticateToken);
+router.use(allowInternalUsers);
 
-router.get('/', getAll);
-router.get('/:id', getById);
-router.post('/', create);
-router.put('/:id', update);
+// GET /api/journals - List all journals
+router.get('/', journalsController.getJournals);
+
+// GET /api/journals/:id - Get single journal
+router.get('/:id', journalsController.getJournalById);
+
+// POST /api/journals - Create journal (ADMIN & ACCOUNTANT)
+router.post('/', requireRole([ROLES.ADMIN, ROLES.ACCOUNTANT]), journalsController.createJournal);
+
+// PUT /api/journals/:id - Update journal (ADMIN & ACCOUNTANT)
+router.put('/:id', requireRole([ROLES.ADMIN, ROLES.ACCOUNTANT]), journalsController.updateJournal);
+
+// DELETE /api/journals/:id - Delete journal (ADMIN & ACCOUNTANT)
+router.delete('/:id', requireRole([ROLES.ADMIN, ROLES.ACCOUNTANT]), journalsController.deleteJournal);
 
 module.exports = router;
