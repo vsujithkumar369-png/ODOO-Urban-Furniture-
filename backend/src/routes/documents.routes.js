@@ -231,13 +231,13 @@ router.post('/', requireRole([ROLES.ADMIN, ROLES.ACCOUNTANT]), async (req, res) 
 });
 
 // PUT /documents/:id
-router.put('/:id', requireRole([ROLES.ADMIN, ROLES.ACCOUNTANT]), async (req, res) => {
+router.put('/:id', async (req, res) => {
   if (!isValidId(req.params.id)) {
     return res.status(400).json({ error: { code: 'VALIDATION_ERROR', message: 'Invalid document ID' } });
   }
 
   const id = parseInt(req.params.id, 10);
-  const { contact_id, doc_date, due_date, reference, lines } = req.body;
+  const { contact_id, doc_date, due_date, reference, lines, status } = req.body;
 
   const client = await pool.connect();
   try {
@@ -250,6 +250,29 @@ router.put('/:id', requireRole([ROLES.ADMIN, ROLES.ACCOUNTANT]), async (req, res
     }
 
     const existing = existingRes.rows[0];
+
+    // If contact user (vendor/customer), allow them to update their own document status (e.g. fulfill order)
+    if (req.user.role === ROLES.CONTACT) {
+      if (existing.contact_id !== req.user.contact_id) {
+        await client.query('ROLLBACK');
+        return res.status(403).json({ error: { code: 'FORBIDDEN', message: 'Not authorized to update this document' } });
+      }
+      if (status) {
+        await client.query('UPDATE documents SET status = $1 WHERE id = $2', [status, id]);
+        await client.query('COMMIT');
+        const updated = await fetchDocumentWithLines(id);
+        return res.json({ data: updated });
+      }
+      await client.query('ROLLBACK');
+      return res.status(403).json({ error: { code: 'FORBIDDEN', message: 'Contacts can only update order status' } });
+    }
+
+    // Otherwise require Admin or Accountant for full document edit
+    if (![ROLES.ADMIN, ROLES.ACCOUNTANT].includes(req.user.role)) {
+      await client.query('ROLLBACK');
+      return res.status(403).json({ error: { code: 'FORBIDDEN', message: 'You do not have permission to access this resource' } });
+    }
+
     if (existing.status !== 'draft') {
       await client.query('ROLLBACK');
       return res.status(400).json({ error: { code: 'VALIDATION_ERROR', message: 'Only draft documents can be edited' } });

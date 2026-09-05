@@ -79,12 +79,11 @@ export default function Sidebar({ onClose }) {
           {/* Customer Specific Sidebar */}
           {(!isVendorContact || isBothContact) && (
             <>
-              {isBothContact && (
-                <div className="px-3 py-1.5 text-xs font-semibold text-gray-400 uppercase tracking-wider mt-3">
-                  Customer Billing
-                </div>
-              )}
-              <SideLink to="/portal" icon={Receipt} label="My Invoices" end />
+              <div className="px-3 py-1.5 text-xs font-semibold text-gray-400 uppercase tracking-wider">
+                Customer Orders
+              </div>
+              <SideLink to="/portal?tab=orders" icon={Package} label="My Orders (Ordered)" />
+              <SideLink to="/portal?tab=invoices" icon={Receipt} label="Invoices & Receipts" />
             </>
           )}
         </div>
