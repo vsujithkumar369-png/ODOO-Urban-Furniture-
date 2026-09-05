@@ -133,11 +133,20 @@ router.post('/login', async (req, res) => {
       });
     }
 
+    let contactType = null;
+    if (user.contact_id) {
+      const cRes = await pool.query('SELECT type FROM contacts WHERE id = $1', [user.contact_id]);
+      if (cRes.rows.length > 0) {
+        contactType = cRes.rows[0].type?.toUpperCase() || null;
+      }
+    }
+
     const payload = {
       id: user.id,
       name: user.name,
       role: user.role,
-      contact_id: user.contact_id
+      contact_id: user.contact_id,
+      contact_type: contactType
     };
 
     const token = jwt.sign(payload, JWT_SECRET, { expiresIn: '1d' });
@@ -149,7 +158,8 @@ router.post('/login', async (req, res) => {
           id: user.id,
           name: user.name,
           role: user.role,
-          contact_id: user.contact_id
+          contact_id: user.contact_id,
+          contact_type: contactType
         }
       }
     });

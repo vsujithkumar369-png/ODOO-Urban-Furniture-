@@ -3,7 +3,7 @@ import {
   LayoutDashboard, Users, Package, BookOpen, BookMarked, BarChart2,
   ShoppingCart, FileText, Receipt, Truck, FileMinus, CreditCard,
   PieChart, TrendingUp, Scale, Wallet, ChevronDown, ChevronUp,
-  LineChart
+  LineChart, CheckCircle2, FileSpreadsheet
 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { useState } from 'react';
@@ -42,7 +42,10 @@ function SideLink({ to, icon: Icon, label, end }) {
 }
 
 export default function Sidebar({ onClose }) {
-  const { isContact } = useAuth();
+  const { user, isContact } = useAuth();
+  const contactType = (user?.contact_type || '').toUpperCase();
+  const isVendorContact = contactType === 'VENDOR';
+  const isBothContact = contactType === 'BOTH';
 
   if (isContact) {
     return (
@@ -50,11 +53,40 @@ export default function Sidebar({ onClose }) {
         <div className="px-4 py-5 border-b border-gray-200 dark:border-gray-800">
           <div className="flex items-center gap-2">
             <div className="w-8 h-8 rounded-lg bg-primary-600 flex items-center justify-center text-white font-bold text-sm">UF</div>
-            <span className="text-sm font-bold text-gray-900 dark:text-gray-100">{LOGO_TEXT}</span>
+            <div>
+              <p className="text-sm font-bold text-gray-900 dark:text-gray-100 leading-none">{LOGO_TEXT}</p>
+              <p className="text-xs text-primary-600 font-semibold mt-0.5">
+                {isVendorContact ? 'Vendor Portal' : isBothContact ? 'Partner Portal' : 'Customer Portal'}
+              </p>
+            </div>
           </div>
         </div>
-        <div className="flex-1 overflow-y-auto p-3">
-          <SideLink to="/portal" icon={Receipt} label="My Invoices" end />
+
+        <div className="flex-1 overflow-y-auto p-3 space-y-1">
+          {/* Vendor Specific Sidebar */}
+          {(isVendorContact || isBothContact) && (
+            <>
+              <div className="px-3 py-1.5 text-xs font-semibold text-gray-400 uppercase tracking-wider">
+                Supplier Orders
+              </div>
+              <SideLink to="/vendor-portal?tab=orders" icon={Truck} label="Assigned Orders" />
+              <SideLink to="/vendor-portal?tab=completed" icon={CheckCircle2} label="Completed Orders" />
+              <SideLink to="/vendor-portal?tab=bills" icon={FileText} label="Vendor Bills" />
+              <SideLink to="/vendor-portal?tab=report" icon={FileSpreadsheet} label="Final Report & Save" />
+            </>
+          )}
+
+          {/* Customer Specific Sidebar */}
+          {(!isVendorContact || isBothContact) && (
+            <>
+              {isBothContact && (
+                <div className="px-3 py-1.5 text-xs font-semibold text-gray-400 uppercase tracking-wider mt-3">
+                  Customer Billing
+                </div>
+              )}
+              <SideLink to="/portal" icon={Receipt} label="My Invoices" end />
+            </>
+          )}
         </div>
       </nav>
     );
@@ -86,6 +118,7 @@ export default function Sidebar({ onClose }) {
         <NavSection title="Purchase" defaultOpen>
           <SideLink to="/purchase-orders" icon={Truck}     label="Purchase Orders" />
           <SideLink to="/bills"           icon={FileMinus} label="Vendor Bills" />
+          <SideLink to="/vendor-reports"  icon={FileSpreadsheet} label="Vendor Fulfillment Reports" />
         </NavSection>
 
         <NavSection title="Master Data" defaultOpen>

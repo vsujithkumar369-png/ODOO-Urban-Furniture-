@@ -50,10 +50,18 @@ router.get('/', async (req, res) => {
     let query = 'SELECT * FROM documents WHERE 1=1';
     const params = [];
 
-    // Security for portal contact
+    // Security for portal contact: restrict strictly to their own contact_id
     if (req.user.role === 'contact') {
-      params.push(req.user.contact_id, 'CUSTOMER_INVOICE');
-      query += ` AND contact_id = $${params.length - 1} AND doc_type = $${params.length}`;
+      params.push(req.user.contact_id);
+      query += ` AND contact_id = $${params.length}`;
+      if (doc_type) {
+        params.push(doc_type);
+        query += ` AND doc_type = $${params.length}`;
+      }
+      if (status) {
+        params.push(status);
+        query += ` AND status = $${params.length}`;
+      }
     } else {
       if (doc_type) {
         params.push(doc_type);
