@@ -4,6 +4,7 @@ import { useForm } from 'react-hook-form';
 import { ArrowLeft, Save, Trash2, KeyRound, Copy, Check } from 'lucide-react';
 import PageHeader from '../../../components/PageHeader';
 import FormField from '../../../components/FormField';
+import ImageUpload from '../../../components/ImageUpload';
 import { getContact, createContact, updateContact, deleteContact } from '../../../api/contacts';
 import toast from 'react-hot-toast';
 
@@ -23,7 +24,7 @@ export default function ContactForm() {
   const [copied, setCopied] = useState(false);
   const [portalInfo, setPortalInfo] = useState(null);
 
-  const { register, handleSubmit, watch, reset, setError, formState: { errors } } = useForm({
+  const { register, handleSubmit, watch, reset, setValue, setError, formState: { errors } } = useForm({
     defaultValues: {
       type: 'CUSTOMER',
       country: 'India',
@@ -279,13 +280,12 @@ export default function ContactForm() {
           </div>
 
           <div className="sm:col-span-2">
-            <FormField
-              label="Image URL"
-              name="image_url"
-              register={register}
-              placeholder="https://..."
-              error={errors.image_url}
-              {...register('image_url')}
+            <ImageUpload
+              label="Contact Profile Photo"
+              shape="rounded-full"
+              value={watch('image_url')}
+              onChange={(val) => setValue('image_url', val, { shouldDirty: true })}
+              helperText="Click the + to select an avatar photo from your device"
             />
           </div>
         </form>
