@@ -72,7 +72,17 @@ app.use((req, res) => {
   });
 });
 
-app.listen(PORT, () => {
-  console.log(`🚀 Urban Furniture Backend API running on http://localhost:${PORT}`);
-  console.log(`📑 Health check: http://localhost:${PORT}/health`);
-});
+const { initDatabase } = require('./db');
+
+initDatabase()
+  .then(() => {
+    app.listen(PORT, () => {
+      console.log(`🚀 Urban Furniture Backend API running on http://localhost:${PORT}`);
+      console.log(`📑 Health check: http://localhost:${PORT}/health`);
+      console.log(`🐘 Connected to PostgreSQL (urban_furniture_db)`);
+    });
+  })
+  .catch((err) => {
+    console.error('Failed to initialize PostgreSQL:', err);
+    process.exit(1);
+  });
