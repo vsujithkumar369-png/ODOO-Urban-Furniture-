@@ -6,7 +6,8 @@ import StatusBadge from '../../components/StatusBadge';
 import PaymentModal from '../../components/PaymentModal';
 import Modal from '../../components/Modal';
 import { getDocuments } from '../../api/documents';
-import { Eye, CreditCard, Receipt, CheckCircle } from 'lucide-react';
+import { Eye, CreditCard, Receipt, CheckCircle, Printer } from 'lucide-react';
+import { generateInvoicePDF } from '../../utils/invoicePdf';
 import toast from 'react-hot-toast';
 
 const fmt = n => `₹${Number(n ?? 0).toLocaleString('en-IN', { minimumFractionDigits: 2 })}`;
@@ -52,6 +53,14 @@ export default function Portal() {
           title="View Invoice Details"
         >
           <Eye size={14} /> View
+        </button>
+
+        <button
+          className="btn-ghost btn-sm text-blue-600 dark:text-blue-400"
+          onClick={() => generateInvoicePDF(row, user)}
+          title="Print / Save PDF Bill"
+        >
+          <Printer size={13} /> PDF
         </button>
 
         {row.status !== 'paid' && (row.amount_due ?? 0) > 0 ? (
@@ -159,6 +168,13 @@ export default function Portal() {
 
             {/* Modal actions */}
             <div className="flex justify-end gap-2 pt-3 border-t border-gray-100 dark:border-gray-800">
+              <button
+                type="button"
+                className="btn-secondary text-blue-600 dark:text-blue-400"
+                onClick={() => generateInvoicePDF(viewModal.doc, user)}
+              >
+                <Printer size={14} /> Download / Print PDF Bill
+              </button>
               <button
                 className="btn-secondary"
                 onClick={() => setViewModal({ open: false, doc: null })}

@@ -1,11 +1,12 @@
 // Unified document list component reused for all 4 doc types
 import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Plus, Search } from 'lucide-react';
+import { Plus, Search, Printer } from 'lucide-react';
 import PageHeader from '../../components/PageHeader';
 import DataTable from '../../components/DataTable';
 import StatusBadge from '../../components/StatusBadge';
 import { getDocuments } from '../../api/documents';
+import { generateInvoicePDF } from '../../utils/invoicePdf';
 import toast from 'react-hot-toast';
 
 const fmt = n => `₹${Number(n ?? 0).toLocaleString('en-IN')}`;
@@ -46,6 +47,22 @@ export default function DocumentList({ docType }) {
     { key: 'total',        label: 'Total',      render: v => fmt(v) },
     { key: 'amount_due',   label: 'Amount Due', render: v => fmt(v) },
     { key: 'status',       label: 'Status',     render: v => <StatusBadge status={v} /> },
+    {
+      key: 'actions',
+      label: 'PDF Bill',
+      render: (_, row) => (
+        <button
+          className="p-1.5 text-blue-600 hover:text-blue-800 hover:bg-blue-50 dark:hover:bg-blue-900/30 rounded transition-colors"
+          onClick={(e) => {
+            e.stopPropagation();
+            generateInvoicePDF(row);
+          }}
+          title="Download / Print PDF Bill"
+        >
+          <Printer size={15} />
+        </button>
+      )
+    }
   ];
 
   return (

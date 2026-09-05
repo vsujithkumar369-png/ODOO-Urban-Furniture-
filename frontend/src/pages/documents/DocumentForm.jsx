@@ -2,7 +2,7 @@
 import { useEffect, useState, useCallback } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { useForm, useFieldArray } from 'react-hook-form';
-import { ArrowLeft, Plus, Trash2, CheckCircle, FileInput, CreditCard, Link as LinkIcon, Truck, Receipt, Check } from 'lucide-react';
+import { ArrowLeft, Plus, Trash2, CheckCircle, FileInput, CreditCard, Link as LinkIcon, Truck, Receipt, Check, Printer } from 'lucide-react';
 import PageHeader from '../../components/PageHeader';
 import FormField from '../../components/FormField';
 import StatusBadge from '../../components/StatusBadge';
@@ -13,6 +13,7 @@ import { getContacts } from '../../api/contacts';
 import { getProducts } from '../../api/products';
 import { getAnalytics } from '../../api/analytics';
 import { getCoa } from '../../api/coa';
+import { generateInvoicePDF } from '../../utils/invoicePdf';
 import toast from 'react-hot-toast';
 
 const fmt = n => `₹${Number(n ?? 0).toLocaleString('en-IN', { minimumFractionDigits: 2 })}`;
@@ -234,6 +235,20 @@ export default function DocumentForm({ docType }) {
             title="Assign a vendor to procure and fulfill these items"
           >
             <Truck size={15} /> Assign to Vendor (Create PO)
+          </button>
+        )}
+        {isEdit && doc && (
+          <button
+            type="button"
+            className="btn-secondary text-blue-600 dark:text-blue-400 border-blue-200 dark:border-blue-800 hover:bg-blue-50 dark:hover:bg-blue-950/40"
+            onClick={() => {
+              const contact = contacts.find(c => String(c.id) === String(doc?.contact_id));
+              generateInvoicePDF(doc, contact);
+            }}
+            id="print-invoice-pdf-btn"
+            title="Generate & Download Professional PDF Bill"
+          >
+            <Printer size={15} /> Generate PDF Bill
           </button>
         )}
         {isPaid && <span className="badge-green text-sm px-3 py-1.5">✓ Payment Approved & Paid</span>}
