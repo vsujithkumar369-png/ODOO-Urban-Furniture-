@@ -2,24 +2,47 @@ import { useForm } from 'react-hook-form';
 import { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { signup as signupApi } from '../../api/auth';
-import { Eye, EyeOff, UserPlus } from 'lucide-react';
+import { Eye, EyeOff, UserPlus, Shield, User, Briefcase } from 'lucide-react';
 import toast from 'react-hot-toast';
 
-const PWD_RE = /^(?=.*[a-z])(?=.*[A-Z])(?=.*[^a-zA-Z0-9]).{9,}$/;
+const PWD_RE = /^(?=.*[a-z])(?=.*[A-Z])(?=.*[^a-zA-Z0-9]).{8,}$/;
 
 export default function Signup() {
   const navigate = useNavigate();
   const [showPwd, setShowPwd] = useState(false);
   const [showConfirm, setShowConfirm] = useState(false);
   const [loading, setLoading] = useState(false);
-  const { register, handleSubmit, watch, formState: { errors }, setError } = useForm();
+
+  const {
+    register,
+    handleSubmit,
+    watch,
+    formState: { errors },
+    setError,
+  } = useForm({
+    defaultValues: {
+      role: 'admin',
+    },
+  });
+
   const pwd = watch('password', '');
+  const selectedRole = watch('role', 'admin');
 
   const onSubmit = async (values) => {
     setLoading(true);
     try {
-      await signupApi({ name: values.name, login_id: values.login_id, email: values.email, password: values.password });
-      toast.success('Account created! Please sign in.');
+      await signupApi({
+        name: values.name,
+        login_id: values.login_id,
+        email: values.email,
+        password: values.password,
+        role: values.role,
+      });
+
+      // Remember login ID for convenient sign in
+      localStorage.setItem('uf_remembered_login_id', values.login_id);
+
+      toast.success(`Account created with role: ${values.role}! Please sign in.`);
       navigate('/login');
     } catch (err) {
       const msg = err.response?.data?.error?.message ?? 'Signup failed.';
@@ -32,17 +55,17 @@ export default function Signup() {
   return (
     <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-gray-50 via-gray-100 to-indigo-50 dark:from-gray-950 dark:via-gray-900 dark:to-indigo-950 px-4 py-10">
       <div className="w-full max-w-md">
-        <div className="text-center mb-8">
-          <div className="inline-flex items-center justify-center w-14 h-14 rounded-2xl bg-primary-600 shadow-lg shadow-primary-600/30 mb-4">
+        <div className="text-center mb-6">
+          <div className="inline-flex items-center justify-center w-14 h-14 rounded-2xl bg-primary-600 shadow-lg shadow-primary-600/30 mb-3">
             <span className="text-white font-bold text-xl">UF</span>
           </div>
           <h1 className="text-2xl font-bold text-gray-900 dark:text-gray-100">Create Account</h1>
-          <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">Sign up as an invoicing user</p>
+          <p className="text-sm text-gray-500 dark:text-gray-400 mt-0.5">Select your role to register</p>
         </div>
 
-        <div className="card p-8">
+        <div className="card p-6 sm:p-8 shadow-xl border border-gray-200/80 dark:border-gray-800">
           {errors.root && (
-            <div className="mb-4 px-4 py-3 rounded-lg bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 text-sm text-red-700 dark:text-red-400">
+            <div className="mb-4 px-3.5 py-2.5 rounded-lg bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 text-sm text-red-700 dark:text-red-400">
               {errors.root.message}
             </div>
           )}
@@ -54,6 +77,65 @@ export default function Signup() {
               <input id="name" className={`input ${errors.name ? 'input-error' : ''}`} placeholder="e.g. Priya Shah"
                 {...register('name', { required: 'Name is required' })} />
               {errors.name && <p className="mt-1 text-xs text-red-500">{errors.name.message}</p>}
+            </div>
+
+            {/* Role Selection (ONLY while creating account) */}
+            <div>
+              <label className="label">
+                Select Account Role <span className="text-red-500">*</span>
+              </label>
+              <div className="grid grid-cols-3 gap-2">
+                <label
+                  className={`flex flex-col items-center justify-center p-2.5 rounded-lg border cursor-pointer transition-all text-center ${
+                    selectedRole === 'admin'
+                      ? 'border-primary-500 bg-primary-50/60 dark:bg-primary-950/30 text-primary-700 dark:text-primary-300 font-medium ring-1 ring-primary-500'
+                      : 'border-gray-200 dark:border-gray-700 text-gray-600 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-800'
+                  }`}
+                >
+                  <input
+                    type="radio"
+                    value="admin"
+                    className="sr-only"
+                    {...register('role', { required: 'Please select a role' })}
+                  />
+                  <Shield size={18} className="mb-1 text-primary-600 dark:text-primary-400" />
+                  <span className="text-xs">Admin</span>
+                </label>
+
+                <label
+                  className={`flex flex-col items-center justify-center p-2.5 rounded-lg border cursor-pointer transition-all text-center ${
+                    selectedRole === 'accountant'
+                      ? 'border-primary-500 bg-primary-50/60 dark:bg-primary-950/30 text-primary-700 dark:text-primary-300 font-medium ring-1 ring-primary-500'
+                      : 'border-gray-200 dark:border-gray-700 text-gray-600 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-800'
+                  }`}
+                >
+                  <input
+                    type="radio"
+                    value="accountant"
+                    className="sr-only"
+                    {...register('role', { required: 'Please select a role' })}
+                  />
+                  <Briefcase size={18} className="mb-1 text-blue-600 dark:text-blue-400" />
+                  <span className="text-xs">Accountant</span>
+                </label>
+
+                <label
+                  className={`flex flex-col items-center justify-center p-2.5 rounded-lg border cursor-pointer transition-all text-center ${
+                    selectedRole === 'contact'
+                      ? 'border-primary-500 bg-primary-50/60 dark:bg-primary-950/30 text-primary-700 dark:text-primary-300 font-medium ring-1 ring-primary-500'
+                      : 'border-gray-200 dark:border-gray-700 text-gray-600 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-800'
+                  }`}
+                >
+                  <input
+                    type="radio"
+                    value="contact"
+                    className="sr-only"
+                    {...register('role', { required: 'Please select a role' })}
+                  />
+                  <User size={18} className="mb-1 text-emerald-600 dark:text-emerald-400" />
+                  <span className="text-xs">Portal / Client</span>
+                </label>
+              </div>
             </div>
 
             {/* Login ID */}
@@ -81,13 +163,13 @@ export default function Signup() {
               <label className="label" htmlFor="password">Password <span className="text-red-500">*</span></label>
               <div className="relative">
                 <input id="password" type={showPwd ? 'text' : 'password'}
-                  className={`input pr-10 ${errors.password ? 'input-error' : ''}`} placeholder="Strong password"
+                  className={`input pr-10 ${errors.password ? 'input-error' : ''}`} placeholder="8+ chars, upper, lower, special"
                   {...register('password', {
                     required: 'Password required',
                     validate: v => PWD_RE.test(v) || 'Must have 8+ chars, uppercase, lowercase, special character',
                   })} />
                 <button type="button" onClick={() => setShowPwd(p => !p)}
-                  className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600" aria-label="Toggle">
+                  className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300" aria-label="Toggle">
                   {showPwd ? <EyeOff size={16} /> : <Eye size={16} />}
                 </button>
               </div>
@@ -105,7 +187,7 @@ export default function Signup() {
                     validate: v => v === pwd || 'Passwords do not match',
                   })} />
                 <button type="button" onClick={() => setShowConfirm(p => !p)}
-                  className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600" aria-label="Toggle">
+                  className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300" aria-label="Toggle">
                   {showConfirm ? <EyeOff size={16} /> : <Eye size={16} />}
                 </button>
               </div>
