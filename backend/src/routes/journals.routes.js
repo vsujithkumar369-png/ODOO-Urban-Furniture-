@@ -1,7 +1,7 @@
 // backend/src/routes/journals.routes.js
 const express = require('express');
 const { pool } = require('../db');
-const { authenticateToken, requireRole } = require('../middleware/auth');
+const { authenticateToken, requireRole, ROLES } = require('../middleware/auth');
 
 const router = express.Router();
 router.use(authenticateToken);
@@ -17,7 +17,7 @@ router.get('/', async (req, res) => {
 });
 
 // POST /journals
-router.post('/', requireRole('admin'), async (req, res) => {
+router.post('/', requireRole([ROLES.ADMIN, ROLES.ACCOUNTANT]), async (req, res) => {
   const { name, type, default_account_id } = req.body;
   if (!name || !type) {
     return res.status(400).json({ error: { code: 'VALIDATION_ERROR', message: 'Name and type are required' } });
@@ -47,7 +47,7 @@ router.post('/', requireRole('admin'), async (req, res) => {
 });
 
 // PUT /journals/:id
-router.put('/:id', requireRole('admin'), async (req, res) => {
+router.put('/:id', requireRole([ROLES.ADMIN, ROLES.ACCOUNTANT]), async (req, res) => {
   const id = parseInt(req.params.id);
   const { name, type, default_account_id } = req.body;
 

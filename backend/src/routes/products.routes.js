@@ -1,7 +1,7 @@
 // backend/src/routes/products.routes.js
 const express = require('express');
 const { pool } = require('../db');
-const { authenticateToken, requireRole } = require('../middleware/auth');
+const { authenticateToken, requireRole, ROLES } = require('../middleware/auth');
 
 const router = express.Router();
 router.use(authenticateToken);
@@ -43,7 +43,7 @@ router.get('/:id', async (req, res) => {
 });
 
 // POST /products
-router.post('/', requireRole('admin'), async (req, res) => {
+router.post('/', requireRole([ROLES.ADMIN, ROLES.ACCOUNTANT]), async (req, res) => {
   const { name, type = 'goods', sales_price = 0, cost = 0, category = 'General' } = req.body;
   if (!name) {
     return res.status(400).json({ error: { code: 'VALIDATION_ERROR', message: 'Product name is required' } });
@@ -69,7 +69,7 @@ router.post('/', requireRole('admin'), async (req, res) => {
 });
 
 // PUT /products/:id
-router.put('/:id', requireRole('admin'), async (req, res) => {
+router.put('/:id', requireRole([ROLES.ADMIN, ROLES.ACCOUNTANT]), async (req, res) => {
   const id = parseInt(req.params.id);
   const { name, type, sales_price, cost, category } = req.body;
 

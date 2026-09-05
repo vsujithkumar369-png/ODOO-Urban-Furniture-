@@ -14,6 +14,8 @@ const paymentsRoutes = require('./routes/payments.routes');
 const journalEntriesRoutes = require('./routes/journalEntries.routes');
 const reportsRoutes = require('./routes/reports.routes');
 
+const usersRoutes = require('./routes/users.routes');
+
 const app = express();
 const PORT = process.env.PORT || 3000;
 
@@ -31,6 +33,7 @@ app.use((req, res, next) => {
 const apiRouter = express.Router();
 
 apiRouter.use('/auth', authRoutes);
+apiRouter.use('/users', usersRoutes);
 apiRouter.use('/contacts', contactsRoutes);
 apiRouter.use('/products', productsRoutes);
 apiRouter.use('/coa', coaRoutes);

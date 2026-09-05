@@ -1,11 +1,11 @@
 // backend/src/routes/reports.routes.js
 const express = require('express');
 const { pool } = require('../db');
-const { authenticateToken, requireRole } = require('../middleware/auth');
+const { authenticateToken, requireRole, ROLES } = require('../middleware/auth');
 
 const router = express.Router();
 router.use(authenticateToken);
-router.use(requireRole('admin'));
+router.use(requireRole([ROLES.ADMIN, ROLES.ACCOUNTANT]));
 
 // GET /reports/profit-loss
 router.get('/profit-loss', async (req, res) => {

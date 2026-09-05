@@ -1,7 +1,7 @@
 // backend/src/routes/budgets.routes.js
 const express = require('express');
 const { pool } = require('../db');
-const { authenticateToken, requireRole } = require('../middleware/auth');
+const { authenticateToken, requireRole, ROLES } = require('../middleware/auth');
 
 const router = express.Router();
 router.use(authenticateToken);
@@ -100,7 +100,7 @@ router.get('/:id/achieved-documents', async (req, res) => {
 });
 
 // POST /budgets
-router.post('/', requireRole('admin'), async (req, res) => {
+router.post('/', requireRole([ROLES.ADMIN, ROLES.ACCOUNTANT]), async (req, res) => {
   const { name, start_date, end_date, analytic_account_id, type = 'expense', responsible, committed_amount } = req.body;
   if (!name || !start_date || !end_date || !analytic_account_id) {
     return res.status(400).json({ error: { code: 'VALIDATION_ERROR', message: 'Missing required budget fields' } });
@@ -135,7 +135,7 @@ router.post('/', requireRole('admin'), async (req, res) => {
 });
 
 // PUT /budgets/:id
-router.put('/:id', requireRole('admin'), async (req, res) => {
+router.put('/:id', requireRole([ROLES.ADMIN, ROLES.ACCOUNTANT]), async (req, res) => {
   const id = parseInt(req.params.id);
   const { name, start_date, end_date, analytic_account_id, type, responsible, committed_amount } = req.body;
 
@@ -181,7 +181,7 @@ router.put('/:id', requireRole('admin'), async (req, res) => {
 });
 
 // POST /budgets/:id/confirm
-router.post('/:id/confirm', requireRole('admin'), async (req, res) => {
+router.post('/:id/confirm', requireRole([ROLES.ADMIN, ROLES.ACCOUNTANT]), async (req, res) => {
   const id = parseInt(req.params.id);
   try {
     const updateRes = await pool.query(
@@ -199,7 +199,7 @@ router.post('/:id/confirm', requireRole('admin'), async (req, res) => {
 });
 
 // POST /budgets/:id/revise
-router.post('/:id/revise', requireRole('admin'), async (req, res) => {
+router.post('/:id/revise', requireRole([ROLES.ADMIN, ROLES.ACCOUNTANT]), async (req, res) => {
   const id = parseInt(req.params.id);
   try {
     const budgetRes = await pool.query('SELECT * FROM budgets WHERE id = $1', [id]);

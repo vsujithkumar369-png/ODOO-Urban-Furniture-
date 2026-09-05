@@ -33,10 +33,12 @@ async function initDatabase() {
         id SERIAL PRIMARY KEY,
         name VARCHAR(255) NOT NULL,
         type VARCHAR(50) DEFAULT 'customer',
-        email VARCHAR(255),
+        email VARCHAR(255) UNIQUE,
         mobile VARCHAR(50),
+        street VARCHAR(255),
         city VARCHAR(100),
         state VARCHAR(100),
+        country VARCHAR(100),
         pincode VARCHAR(20),
         image_url TEXT,
         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
@@ -154,7 +156,19 @@ async function initDatabase() {
       );
     `);
 
-    // Check if seeded
+    // Schema migrations for existing tables (non-destructive)
+    await client.query(`
+      ALTER TABLE contacts ADD COLUMN IF NOT EXISTS street VARCHAR(255);
+      ALTER TABLE contacts ADD COLUMN IF NOT EXISTS country VARCHAR(100);
+      DO $$
+      BEGIN
+        IF NOT EXISTS (
+          SELECT 1 FROM pg_constraint WHERE conname = 'contacts_email_key'
+        ) THEN
+          ALTER TABLE contacts ADD CONSTRAINT contacts_email_key UNIQUE (email);
+        END IF;
+      END $$;
+    `);
     // Ensure standard Chart of Accounts exist if table empty
     const coaCount = await client.query('SELECT COUNT(*) FROM accounts');
     if (parseInt(coaCount.rows[0].count) === 0) {
@@ -186,6 +200,20 @@ async function initDatabase() {
       `);
     }
 
+
+    // Seed default Admin & Accountant users if users table is empty
+    const usersCount = await client.query('SELECT COUNT(*) FROM users');
+    if (parseInt(usersCount.rows[0].count) === 0) {
+      const bcrypt = require('bcrypt');
+      const adminHash = await bcrypt.hash('Admin@123', 12);
+      const accHash = await bcrypt.hash('Accountant@123', 12);
+
+      await client.query(`
+        INSERT INTO users (name, login_id, email, password, role, contact_id) VALUES
+        ('System Admin', 'admin_user', 'admin@urbanfurniture.com', $1, 'admin', NULL),
+        ('Primary Accountant', 'acc_user', 'accountant@urbanfurniture.com', $2, 'accountant', NULL);
+      `, [adminHash, accHash]);
+    }
 
     console.log('✅ PostgreSQL database ready.');
   } finally {
