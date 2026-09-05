@@ -1,7 +1,7 @@
 // backend/src/routes/documents.routes.js
 const express = require('express');
 const { pool } = require('../db');
-const { authenticateToken, requireRole } = require('../middleware/auth');
+const { authenticateToken, requireRole, ROLES } = require('../middleware/auth');
 const { postDocumentEntry } = require('../services/postingEngine');
 
 const router = express.Router();
@@ -119,7 +119,7 @@ router.get('/:id', async (req, res) => {
 });
 
 // POST /documents
-router.post('/', requireRole('admin'), async (req, res) => {
+router.post('/', requireRole([ROLES.ADMIN, ROLES.ACCOUNTANT]), async (req, res) => {
   const { doc_type, contact_id, doc_date, due_date, reference = '', lines = [] } = req.body;
 
   if (!doc_type || !contact_id) {
@@ -200,7 +200,7 @@ router.post('/', requireRole('admin'), async (req, res) => {
 });
 
 // PUT /documents/:id
-router.put('/:id', requireRole('admin'), async (req, res) => {
+router.put('/:id', requireRole([ROLES.ADMIN, ROLES.ACCOUNTANT]), async (req, res) => {
   const id = parseInt(req.params.id);
   const { contact_id, doc_date, due_date, reference, lines } = req.body;
 
@@ -282,7 +282,7 @@ router.put('/:id', requireRole('admin'), async (req, res) => {
 });
 
 // POST /documents/:id/confirm
-router.post('/:id/confirm', requireRole('admin'), async (req, res) => {
+router.post('/:id/confirm', requireRole([ROLES.ADMIN, ROLES.ACCOUNTANT]), async (req, res) => {
   const id = parseInt(req.params.id);
   try {
     const doc = await fetchDocumentWithLines(id);
@@ -316,7 +316,7 @@ router.post('/:id/confirm', requireRole('admin'), async (req, res) => {
 });
 
 // POST /documents/:id/convert
-router.post('/:id/convert', requireRole('admin'), async (req, res) => {
+router.post('/:id/convert', requireRole([ROLES.ADMIN, ROLES.ACCOUNTANT]), async (req, res) => {
   const id = parseInt(req.params.id);
   try {
     const sourceDoc = await fetchDocumentWithLines(id);

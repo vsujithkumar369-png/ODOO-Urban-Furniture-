@@ -1,17 +1,57 @@
 // backend/src/routes/auth.routes.js
 const express = require('express');
 const jwt = require('jsonwebtoken');
+const bcrypt = require('bcrypt');
 const { pool } = require('../db');
 const { JWT_SECRET } = require('../middleware/auth');
 
 const router = express.Router();
 
+// Helper validation functions
+function isValidLoginId(loginId) {
+  return typeof loginId === 'string' && /^[a-zA-Z0-9_]{6,12}$/.test(loginId);
+}
+
+function isValidEmail(email) {
+  return typeof email === 'string' && /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
+}
+
+function isValidPassword(password) {
+  if (typeof password !== 'string' || password.length < 8) return false;
+  const hasUpper = /[A-Z]/.test(password);
+  const hasLower = /[a-z]/.test(password);
+  const hasSpecial = /[!@#$%^&*()_+\-=\[\]{};':"\\|,.<>\/?]/.test(password);
+  return hasUpper && hasLower && hasSpecial;
+}
+
 router.post('/signup', async (req, res) => {
+  // Explicitly ignore role parameter from body to prevent privilege escalation
   const { name, login_id, email, password } = req.body;
 
-  if (!name || !login_id || !email || !password) {
+  if (!name || typeof name !== 'string' || !name.trim()) {
     return res.status(400).json({
-      error: { code: 'VALIDATION_ERROR', message: 'All fields are required' }
+      error: { code: 'VALIDATION_ERROR', message: 'Name is required' }
+    });
+  }
+
+  if (!isValidLoginId(login_id)) {
+    return res.status(400).json({
+      error: { code: 'VALIDATION_ERROR', message: 'Login ID must be 6-12 alphanumeric characters' }
+    });
+  }
+
+  if (!isValidEmail(email)) {
+    return res.status(400).json({
+      error: { code: 'VALIDATION_ERROR', message: 'Valid email address is required' }
+    });
+  }
+
+  if (!isValidPassword(password)) {
+    return res.status(400).json({
+      error: { 
+        code: 'VALIDATION_ERROR', 
+        message: 'Password must be at least 8 characters long and contain uppercase, lowercase, and special characters' 
+      }
     });
   }
 
@@ -27,9 +67,12 @@ router.post('/signup', async (req, res) => {
       });
     }
 
+    const hashedPassword = await bcrypt.hash(password, 12);
+
+    // Rule 1 & 2: Signup ALWAYS creates 'accountant' role, never 'admin'
     const insertRes = await pool.query(
       'INSERT INTO users (name, login_id, email, password, role, contact_id) VALUES ($1, $2, $3, $4, $5, $6) RETURNING id, name, login_id, email, role',
-      [name, login_id, email, password, 'admin', null]
+      [name.trim(), login_id, email, hashedPassword, 'accountant', null]
     );
 
     const newUser = insertRes.rows[0];
@@ -60,12 +103,31 @@ router.post('/login', async (req, res) => {
 
   try {
     const userRes = await pool.query(
-      'SELECT * FROM users WHERE (LOWER(login_id) = LOWER($1) OR LOWER(email) = LOWER($1)) AND password = $2',
-      [login_id, password]
+      'SELECT * FROM users WHERE LOWER(login_id) = LOWER($1) OR LOWER(email) = LOWER($1)',
+      [login_id]
     );
 
     const user = userRes.rows[0];
     if (!user) {
+      return res.status(401).json({
+        error: { code: 'UNAUTHORIZED', message: 'Invalid Login Id or Password' }
+      });
+    }
+
+    // Support existing plaintext or bcrypt hashed passwords during migration seamlessly
+    let isMatch = false;
+    if (user.password.startsWith('$2b$') || user.password.startsWith('$2a$')) {
+      isMatch = await bcrypt.compare(password, user.password);
+    } else {
+      isMatch = (user.password === password);
+      // Auto-migrate plaintext to bcrypt hash upon successful login
+      if (isMatch) {
+        const newHash = await bcrypt.hash(password, 12);
+        await pool.query('UPDATE users SET password = $1 WHERE id = $2', [newHash, user.id]);
+      }
+    }
+
+    if (!isMatch) {
       return res.status(401).json({
         error: { code: 'UNAUTHORIZED', message: 'Invalid Login Id or Password' }
       });
@@ -78,7 +140,7 @@ router.post('/login', async (req, res) => {
       contact_id: user.contact_id
     };
 
-    const token = jwt.sign(payload, JWT_SECRET, { expiresIn: '7d' });
+    const token = jwt.sign(payload, JWT_SECRET, { expiresIn: '1d' });
 
     res.status(200).json({
       data: {

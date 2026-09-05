@@ -42,8 +42,15 @@ function requireRole(roles) {
   };
 }
 
+const ROLES = {
+  ADMIN: 'admin',
+  ACCOUNTANT: 'accountant',
+  CONTACT: 'contact'
+};
+
 module.exports = {
   JWT_SECRET,
+  ROLES,
   authenticateToken,
   requireRole
 };
