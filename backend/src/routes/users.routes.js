@@ -6,21 +6,7 @@ const { authenticateToken, requireRole, ROLES } = require('../middleware/auth');
 
 const router = express.Router();
 
-function isValidLoginId(loginId) {
-  return typeof loginId === 'string' && /^[a-zA-Z0-9_]{6,12}$/.test(loginId);
-}
-
-function isValidEmail(email) {
-  return typeof email === 'string' && /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
-}
-
-function isValidPassword(password) {
-  if (typeof password !== 'string' || password.length < 8) return false;
-  const hasUpper = /[A-Z]/.test(password);
-  const hasLower = /[a-z]/.test(password);
-  const hasSpecial = /[!@#$%^&*()_+\-=\[\]{};':"\\|,.<>\/?]/.test(password);
-  return hasUpper && hasLower && hasSpecial;
-}
+const { isValidLoginId, isValidEmail, isValidPassword } = require('../middleware/validation');
 
 // All user management routes require ADMIN role
 router.use(authenticateToken, requireRole(ROLES.ADMIN));

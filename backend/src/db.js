@@ -47,10 +47,11 @@ async function initDatabase() {
       CREATE TABLE IF NOT EXISTS products (
         id SERIAL PRIMARY KEY,
         name VARCHAR(255) NOT NULL,
-        type VARCHAR(50) DEFAULT 'goods',
+        type VARCHAR(50) DEFAULT 'GOODS',
         sales_price NUMERIC(12, 2) DEFAULT 0.00,
         cost NUMERIC(12, 2) DEFAULT 0.00,
-        category VARCHAR(100),
+        category VARCHAR(100) DEFAULT 'General',
+        image_url TEXT,
         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
       );
 
@@ -72,8 +73,8 @@ async function initDatabase() {
 
       CREATE TABLE IF NOT EXISTS analytic_accounts (
         id SERIAL PRIMARY KEY,
-        name VARCHAR(255) NOT NULL,
-        type VARCHAR(50) DEFAULT 'expense',
+        name VARCHAR(255) NOT NULL UNIQUE,
+        type VARCHAR(50) DEFAULT 'EXPENSE',
         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
       );
 
@@ -160,12 +161,23 @@ async function initDatabase() {
     await client.query(`
       ALTER TABLE contacts ADD COLUMN IF NOT EXISTS street VARCHAR(255);
       ALTER TABLE contacts ADD COLUMN IF NOT EXISTS country VARCHAR(100);
+      ALTER TABLE products ADD COLUMN IF NOT EXISTS image_url TEXT;
       DO $$
       BEGIN
         IF NOT EXISTS (
           SELECT 1 FROM pg_constraint WHERE conname = 'contacts_email_key'
         ) THEN
           ALTER TABLE contacts ADD CONSTRAINT contacts_email_key UNIQUE (email);
+        END IF;
+        IF NOT EXISTS (
+          SELECT 1 FROM pg_constraint WHERE conname = 'products_name_key'
+        ) THEN
+          ALTER TABLE products ADD CONSTRAINT products_name_key UNIQUE (name);
+        END IF;
+        IF NOT EXISTS (
+          SELECT 1 FROM pg_constraint WHERE conname = 'analytic_accounts_name_key'
+        ) THEN
+          ALTER TABLE analytic_accounts ADD CONSTRAINT analytic_accounts_name_key UNIQUE (name);
         END IF;
       END $$;
     `);

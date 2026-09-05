@@ -54,26 +54,11 @@ app.get('/health', (req, res) => {
   res.json({ status: 'ok', service: 'Urban Furniture Accounting API', timestamp: new Date().toISOString() });
 });
 
-// Global Error Handler
-app.use((err, req, res, next) => {
-  console.error('[Error]', err);
-  res.status(err.status || 500).json({
-    error: {
-      code: err.code || 'SERVER_ERROR',
-      message: err.message || 'Internal Server Error'
-    }
-  });
-});
+const { errorHandler, notFoundHandler } = require('./middleware/errorHandler');
 
-// 404 Handler
-app.use((req, res) => {
-  res.status(404).json({
-    error: {
-      code: 'NOT_FOUND',
-      message: `Route ${req.method} ${req.originalUrl} not found`
-    }
-  });
-});
+// Global Error Handler & 404 Handler
+app.use(errorHandler);
+app.use(notFoundHandler);
 
 const { initDatabase } = require('./db');
 
