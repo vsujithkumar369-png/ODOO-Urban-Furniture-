@@ -1,0 +1,1 @@
+// Journal entries controller placeholder.

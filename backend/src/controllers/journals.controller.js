@@ -1,0 +1,1 @@
+// Journals controller placeholder.

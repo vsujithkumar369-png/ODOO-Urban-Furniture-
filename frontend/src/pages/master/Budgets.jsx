@@ -1,0 +1,1 @@
+// Budgets page placeholder.

@@ -1,0 +1,1 @@
+// MasterForm component placeholder.

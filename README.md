@@ -1,2 +1,1 @@
-# ODOO-Urban-Furniture-
-Urban Furniture Accounting System - Hackathon Project
+<!-- Documents how to run the backend and frontend. -->

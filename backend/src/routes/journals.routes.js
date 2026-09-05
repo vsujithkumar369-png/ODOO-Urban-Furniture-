@@ -1,0 +1,1 @@
+// Journals routes placeholder.
