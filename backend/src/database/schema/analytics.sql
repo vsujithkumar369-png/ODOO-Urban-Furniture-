@@ -1,0 +1,6 @@
+CREATE TABLE IF NOT EXISTS analytic_accounts (
+    id SERIAL PRIMARY KEY,
+    name VARCHAR(255) UNIQUE NOT NULL,
+    type VARCHAR(50) NOT NULL DEFAULT 'EXPENSE' CHECK (type IN ('INCOME', 'EXPENSE', 'income', 'expense')),
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);

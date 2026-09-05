@@ -1,1 +1,1 @@
-// Budgets page placeholder.
+export { default } from './budgets/BudgetList';

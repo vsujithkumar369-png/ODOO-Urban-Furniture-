@@ -1,1 +1,1 @@
-// Journals page placeholder.
+export { default } from './journals/JournalList';

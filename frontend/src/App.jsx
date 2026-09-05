@@ -38,8 +38,8 @@ import VendorReports from './pages/reports/VendorReports';
 import Portal from './pages/portal/Portal';
 import VendorPortal from './pages/portal/VendorPortal';
 
-const STAFF = ['admin'];
-const ALL   = ['admin', 'contact'];
+const INTERNAL_ROLES = ['admin', 'accountant'];
+const ALL_ROLES      = ['admin', 'accountant', 'contact'];
 
 export default function App() {
   return (
@@ -51,66 +51,66 @@ export default function App() {
       <Route path="/"                element={<Navigate to="/login" replace />} />
 
       {/* Protected — inside Layout */}
-      <Route element={<ProtectedRoute roles={ALL}><Layout /></ProtectedRoute>}>
+      <Route element={<ProtectedRoute roles={ALL_ROLES}><Layout /></ProtectedRoute>}>
 
         {/* Dashboard */}
         <Route path="/dashboard" element={
-          <ProtectedRoute roles={STAFF}><Dashboard /></ProtectedRoute>
+          <ProtectedRoute roles={INTERNAL_ROLES}><Dashboard /></ProtectedRoute>
         } />
 
         {/* Contacts */}
-        <Route path="/contacts"      element={<ProtectedRoute roles={STAFF}><ContactList /></ProtectedRoute>} />
-        <Route path="/contacts/new"  element={<ProtectedRoute roles={STAFF}><ContactForm /></ProtectedRoute>} />
-        <Route path="/contacts/:id"  element={<ProtectedRoute roles={STAFF}><ContactForm /></ProtectedRoute>} />
+        <Route path="/contacts"      element={<ProtectedRoute roles={INTERNAL_ROLES}><ContactList /></ProtectedRoute>} />
+        <Route path="/contacts/new"  element={<ProtectedRoute roles={INTERNAL_ROLES}><ContactForm /></ProtectedRoute>} />
+        <Route path="/contacts/:id"  element={<ProtectedRoute roles={INTERNAL_ROLES}><ContactForm /></ProtectedRoute>} />
 
         {/* Products */}
-        <Route path="/products"      element={<ProtectedRoute roles={STAFF}><ProductList /></ProtectedRoute>} />
-        <Route path="/products/new"  element={<ProtectedRoute roles={STAFF}><ProductForm /></ProtectedRoute>} />
-        <Route path="/products/:id"  element={<ProtectedRoute roles={STAFF}><ProductForm /></ProtectedRoute>} />
+        <Route path="/products"      element={<ProtectedRoute roles={INTERNAL_ROLES}><ProductList /></ProtectedRoute>} />
+        <Route path="/products/new"  element={<ProtectedRoute roles={INTERNAL_ROLES}><ProductForm /></ProtectedRoute>} />
+        <Route path="/products/:id"  element={<ProtectedRoute roles={INTERNAL_ROLES}><ProductForm /></ProtectedRoute>} />
 
         {/* COA */}
-        <Route path="/coa"           element={<ProtectedRoute roles={STAFF}><CoaList /></ProtectedRoute>} />
+        <Route path="/coa"           element={<ProtectedRoute roles={INTERNAL_ROLES}><CoaList /></ProtectedRoute>} />
 
         {/* Journals */}
-        <Route path="/journals"      element={<ProtectedRoute roles={STAFF}><JournalList /></ProtectedRoute>} />
+        <Route path="/journals"      element={<ProtectedRoute roles={INTERNAL_ROLES}><JournalList /></ProtectedRoute>} />
 
         {/* Analytics */}
-        <Route path="/analytics"     element={<ProtectedRoute roles={STAFF}><AnalyticsList /></ProtectedRoute>} />
+        <Route path="/analytics"     element={<ProtectedRoute roles={INTERNAL_ROLES}><AnalyticsList /></ProtectedRoute>} />
 
         {/* Budgets */}
-        <Route path="/budgets"       element={<ProtectedRoute roles={STAFF}><BudgetList /></ProtectedRoute>} />
-        <Route path="/budgets/new"   element={<ProtectedRoute roles={STAFF}><BudgetForm /></ProtectedRoute>} />
-        <Route path="/budgets/:id"   element={<ProtectedRoute roles={STAFF}><BudgetForm /></ProtectedRoute>} />
+        <Route path="/budgets"       element={<ProtectedRoute roles={INTERNAL_ROLES}><BudgetList /></ProtectedRoute>} />
+        <Route path="/budgets/new"   element={<ProtectedRoute roles={INTERNAL_ROLES}><BudgetForm /></ProtectedRoute>} />
+        <Route path="/budgets/:id"   element={<ProtectedRoute roles={INTERNAL_ROLES}><BudgetForm /></ProtectedRoute>} />
 
         {/* Sales Orders */}
-        <Route path="/sales-orders"      element={<ProtectedRoute roles={STAFF}><DocumentList docType="SO" /></ProtectedRoute>} />
-        <Route path="/sales-orders/new"  element={<ProtectedRoute roles={STAFF}><DocumentForm docType="SO" /></ProtectedRoute>} />
-        <Route path="/sales-orders/:id"  element={<ProtectedRoute roles={STAFF}><DocumentForm docType="SO" /></ProtectedRoute>} />
+        <Route path="/sales-orders"      element={<ProtectedRoute roles={INTERNAL_ROLES}><DocumentList docType="SO" /></ProtectedRoute>} />
+        <Route path="/sales-orders/new"  element={<ProtectedRoute roles={INTERNAL_ROLES}><DocumentForm docType="SO" /></ProtectedRoute>} />
+        <Route path="/sales-orders/:id"  element={<ProtectedRoute roles={INTERNAL_ROLES}><DocumentForm docType="SO" /></ProtectedRoute>} />
 
         {/* Customer Invoices */}
-        <Route path="/invoices"      element={<ProtectedRoute roles={STAFF}><DocumentList docType="CUSTOMER_INVOICE" /></ProtectedRoute>} />
-        <Route path="/invoices/new"  element={<ProtectedRoute roles={STAFF}><DocumentForm docType="CUSTOMER_INVOICE" /></ProtectedRoute>} />
-        <Route path="/invoices/:id"  element={<ProtectedRoute roles={STAFF}><DocumentForm docType="CUSTOMER_INVOICE" /></ProtectedRoute>} />
+        <Route path="/invoices"      element={<ProtectedRoute roles={INTERNAL_ROLES}><DocumentList docType="CUSTOMER_INVOICE" /></ProtectedRoute>} />
+        <Route path="/invoices/new"  element={<ProtectedRoute roles={INTERNAL_ROLES}><DocumentForm docType="CUSTOMER_INVOICE" /></ProtectedRoute>} />
+        <Route path="/invoices/:id"  element={<ProtectedRoute roles={INTERNAL_ROLES}><DocumentForm docType="CUSTOMER_INVOICE" /></ProtectedRoute>} />
 
         {/* Purchase Orders */}
-        <Route path="/purchase-orders"      element={<ProtectedRoute roles={STAFF}><DocumentList docType="PO" /></ProtectedRoute>} />
-        <Route path="/purchase-orders/new"  element={<ProtectedRoute roles={STAFF}><DocumentForm docType="PO" /></ProtectedRoute>} />
-        <Route path="/purchase-orders/:id"  element={<ProtectedRoute roles={STAFF}><DocumentForm docType="PO" /></ProtectedRoute>} />
+        <Route path="/purchase-orders"      element={<ProtectedRoute roles={INTERNAL_ROLES}><DocumentList docType="PO" /></ProtectedRoute>} />
+        <Route path="/purchase-orders/new"  element={<ProtectedRoute roles={INTERNAL_ROLES}><DocumentForm docType="PO" /></ProtectedRoute>} />
+        <Route path="/purchase-orders/:id"  element={<ProtectedRoute roles={INTERNAL_ROLES}><DocumentForm docType="PO" /></ProtectedRoute>} />
 
         {/* Vendor Bills */}
-        <Route path="/bills"      element={<ProtectedRoute roles={STAFF}><DocumentList docType="VENDOR_BILL" /></ProtectedRoute>} />
-        <Route path="/bills/new"  element={<ProtectedRoute roles={STAFF}><DocumentForm docType="VENDOR_BILL" /></ProtectedRoute>} />
-        <Route path="/bills/:id"  element={<ProtectedRoute roles={STAFF}><DocumentForm docType="VENDOR_BILL" /></ProtectedRoute>} />
+        <Route path="/bills"      element={<ProtectedRoute roles={INTERNAL_ROLES}><DocumentList docType="VENDOR_BILL" /></ProtectedRoute>} />
+        <Route path="/bills/new"  element={<ProtectedRoute roles={INTERNAL_ROLES}><DocumentForm docType="VENDOR_BILL" /></ProtectedRoute>} />
+        <Route path="/bills/:id"  element={<ProtectedRoute roles={INTERNAL_ROLES}><DocumentForm docType="VENDOR_BILL" /></ProtectedRoute>} />
 
         {/* Journal Entries */}
-        <Route path="/journal-entries"     element={<ProtectedRoute roles={STAFF}><JournalEntriesList /></ProtectedRoute>} />
-        <Route path="/journal-entries/:id" element={<ProtectedRoute roles={STAFF}><JournalEntryDetail /></ProtectedRoute>} />
+        <Route path="/journal-entries"     element={<ProtectedRoute roles={INTERNAL_ROLES}><JournalEntriesList /></ProtectedRoute>} />
+        <Route path="/journal-entries/:id" element={<ProtectedRoute roles={INTERNAL_ROLES}><JournalEntryDetail /></ProtectedRoute>} />
 
         {/* Reports */}
-        <Route path="/reports/profit-loss"   element={<ProtectedRoute roles={STAFF}><ProfitLoss /></ProtectedRoute>} />
-        <Route path="/reports/balance-sheet" element={<ProtectedRoute roles={STAFF}><BalanceSheet /></ProtectedRoute>} />
-        <Route path="/reports/budget"        element={<ProtectedRoute roles={STAFF}><BudgetReport /></ProtectedRoute>} />
-        <Route path="/vendor-reports"        element={<ProtectedRoute roles={STAFF}><VendorReports /></ProtectedRoute>} />
+        <Route path="/reports/profit-loss"   element={<ProtectedRoute roles={INTERNAL_ROLES}><ProfitLoss /></ProtectedRoute>} />
+        <Route path="/reports/balance-sheet" element={<ProtectedRoute roles={INTERNAL_ROLES}><BalanceSheet /></ProtectedRoute>} />
+        <Route path="/reports/budget"        element={<ProtectedRoute roles={INTERNAL_ROLES}><BudgetReport /></ProtectedRoute>} />
+        <Route path="/vendor-reports"        element={<ProtectedRoute roles={INTERNAL_ROLES}><VendorReports /></ProtectedRoute>} />
 
         {/* Portal */}
         <Route path="/portal"        element={<ProtectedRoute roles={['contact', 'admin', 'accountant']}><Portal /></ProtectedRoute>} />

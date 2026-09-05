@@ -1,1 +1,1 @@
-// Products page placeholder.
+export { default } from './products/ProductList';

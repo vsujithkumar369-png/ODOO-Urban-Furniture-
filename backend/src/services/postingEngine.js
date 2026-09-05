@@ -1,5 +1,4 @@
-// backend/src/services/postingEngine.js
-const { pool } = require('../config/db');
+const { pool } = require('../db');
 
 async function postDocumentEntry(document) {
   const isInvoice = document.doc_type === 'CUSTOMER_INVOICE';

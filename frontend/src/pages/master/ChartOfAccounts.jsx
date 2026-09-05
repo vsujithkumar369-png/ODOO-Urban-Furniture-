@@ -1,1 +1,1 @@
-// ChartOfAccounts page placeholder.
+export { default } from './coa/CoaList';

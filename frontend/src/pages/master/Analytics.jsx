@@ -1,1 +1,1 @@
-// Analytics page placeholder.
+export { default } from './analytics/AnalyticsList';

@@ -24,4 +24,12 @@ const budgetReport = async (req, res, next) => {
   } catch (error) { next(error); }
 };
 
-module.exports = { profitLoss, balanceSheet, budgetReport };
+module.exports = {
+  getProfitLoss: profitLoss,
+  getBalanceSheet: balanceSheet,
+  getBudgetReport: budgetReport,
+  profitLoss,
+  balanceSheet,
+  budgetReport
+};
+

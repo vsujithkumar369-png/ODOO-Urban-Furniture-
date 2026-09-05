@@ -1,1 +1,1 @@
-// Contacts page placeholder.
+export { default } from './contacts/ContactList';
