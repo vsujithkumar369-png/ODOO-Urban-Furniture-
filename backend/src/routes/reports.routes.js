@@ -9,7 +9,7 @@ router.use(requireRole([ROLES.ADMIN, ROLES.ACCOUNTANT]));
 
 // GET /reports/profit-loss
 router.get('/profit-loss', async (req, res) => {
-  const year = parseInt(req.query.year) || new Date().getFullYear();
+  const year = parseInt(req.query.year, 10) || new Date().getFullYear();
 
   try {
     const query = `
@@ -45,13 +45,14 @@ router.get('/profit-loss', async (req, res) => {
       }
     });
   } catch (err) {
+    console.error('Error generating Profit & Loss report:', err);
     res.status(500).json({ error: { code: 'SERVER_ERROR', message: 'Failed to generate Profit & Loss report' } });
   }
 });
 
 // GET /reports/balance-sheet
 router.get('/balance-sheet', async (req, res) => {
-  const year = parseInt(req.query.year) || new Date().getFullYear();
+  const year = parseInt(req.query.year, 10) || new Date().getFullYear();
 
   try {
     const query = `
@@ -108,6 +109,7 @@ router.get('/balance-sheet', async (req, res) => {
       }
     });
   } catch (err) {
+    console.error('Error generating Balance Sheet:', err);
     res.status(500).json({ error: { code: 'SERVER_ERROR', message: 'Failed to generate Balance Sheet' } });
   }
 });
@@ -117,39 +119,42 @@ router.get('/budget-report', async (req, res) => {
   try {
     const budgetsRes = await pool.query('SELECT * FROM budgets ORDER BY id ASC');
 
-    const result = await Promise.all(budgetsRes.rows.map(async (budget) => {
-      let achieved = 0;
-      if (budget.status === 'confirmed') {
-        const docType = budget.type === 'expense' ? 'VENDOR_BILL' : 'CUSTOMER_INVOICE';
-        const q = `
-          SELECT COALESCE(SUM(dl.line_total), 0) as achieved
-          FROM document_lines dl
-          JOIN documents d ON dl.document_id = d.id
-          WHERE d.status IN ('confirmed', 'paid', 'partially_paid')
-            AND d.doc_type = $1
-            AND dl.analytic_account_id = $2
-        `;
-        const aRes = await pool.query(q, [docType, budget.analytic_account_id]);
-        achieved = parseFloat(aRes.rows[0].achieved) || 0;
-      }
+    const result = await Promise.all(
+      budgetsRes.rows.map(async (budget) => {
+        let achieved = 0;
+        if (budget.status === 'confirmed') {
+          const docType = budget.type === 'expense' ? 'VENDOR_BILL' : 'CUSTOMER_INVOICE';
+          const q = `
+            SELECT COALESCE(SUM(dl.line_total), 0) as achieved
+            FROM document_lines dl
+            JOIN documents d ON dl.document_id = d.id
+            WHERE d.status IN ('confirmed', 'paid', 'partially_paid')
+              AND d.doc_type = $1
+              AND dl.analytic_account_id = $2
+          `;
+          const aRes = await pool.query(q, [docType, budget.analytic_account_id]);
+          achieved = parseFloat(aRes.rows[0].achieved) || 0;
+        }
 
-      const committed = parseFloat(budget.committed_amount) || 0;
-      const pct = committed > 0 ? parseFloat(((achieved / committed) * 100).toFixed(1)) : 0;
+        const committed = parseFloat(budget.committed_amount) || 0;
+        const pct = committed > 0 ? parseFloat(((achieved / committed) * 100).toFixed(1)) : 0;
 
-      return {
-        id: budget.id,
-        name: budget.name,
-        start_date: budget.start_date,
-        end_date: budget.end_date,
-        status: budget.status,
-        committed_amount: committed,
-        achieved_amount: achieved,
-        achieved_percent: pct
-      };
-    }));
+        return {
+          id: budget.id,
+          name: budget.name,
+          start_date: budget.start_date,
+          end_date: budget.end_date,
+          status: budget.status,
+          committed_amount: committed,
+          achieved_amount: achieved,
+          achieved_percent: pct
+        };
+      })
+    );
 
     res.json({ data: result });
   } catch (err) {
+    console.error('Error fetching budget report:', err);
     res.status(500).json({ error: { code: 'SERVER_ERROR', message: 'Failed to fetch budget report' } });
   }
 });

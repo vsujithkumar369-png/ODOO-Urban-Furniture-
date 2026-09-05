@@ -15,6 +15,7 @@ const journalEntriesRoutes = require('./routes/journalEntries.routes');
 const reportsRoutes = require('./routes/reports.routes');
 
 const usersRoutes = require('./routes/users.routes');
+const { errorHandler, notFoundHandler } = require('./middleware/errorHandler');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -55,11 +56,11 @@ app.get('/health', (req, res) => {
   res.json({ status: 'ok', service: 'Urban Furniture Accounting API', timestamp: new Date().toISOString() });
 });
 
-const { errorHandler, notFoundHandler } = require('./middleware/errorHandler');
-
-// Global Error Handler & 404 Handler
-app.use(errorHandler);
+// 404 Route Not Found Handler
 app.use(notFoundHandler);
+
+// Global Error Handler
+app.use(errorHandler);
 
 const { initDatabase } = require('./db');
 

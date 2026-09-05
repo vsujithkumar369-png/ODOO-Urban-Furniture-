@@ -1,7 +1,8 @@
 // backend/src/routes/payments.routes.js
 const express = require('express');
 const { pool } = require('../db');
-const { authenticateToken } = require('../middleware/auth');
+const { authenticateToken, ROLES } = require('../middleware/auth');
+const { isValidId, isNonNegativeNumber } = require('../middleware/validation');
 const { postPaymentEntry } = require('../services/postingEngine');
 
 const router = express.Router();
@@ -11,12 +12,17 @@ router.use(authenticateToken);
 router.get('/', async (req, res) => {
   const { document_id } = req.query;
   try {
-    let query = 'SELECT * FROM payments';
+    let query = 'SELECT * FROM payments WHERE 1=1';
     const params = [];
+
     if (document_id) {
-      query += ' WHERE document_id = $1';
-      params.push(parseInt(document_id));
+      if (!isValidId(document_id)) {
+        return res.status(400).json({ error: { code: 'VALIDATION_ERROR', message: 'Invalid document ID' } });
+      }
+      params.push(parseInt(document_id, 10));
+      query += ` AND document_id = $${params.length}`;
     }
+
     query += ' ORDER BY id DESC';
     const result = await pool.query(query, params);
     const payments = result.rows.map(p => ({
@@ -25,6 +31,7 @@ router.get('/', async (req, res) => {
     }));
     res.json({ data: payments });
   } catch (err) {
+    console.error('Error fetching payments:', err);
     res.status(500).json({ error: { code: 'SERVER_ERROR', message: 'Failed to fetch payments' } });
   }
 });
@@ -33,20 +40,22 @@ router.get('/', async (req, res) => {
 router.post('/', async (req, res) => {
   const { document_id, direction = 'send', amount, pay_date, method = 'bank', note = '' } = req.body;
 
-  if (!document_id || amount === undefined) {
-    return res.status(400).json({ error: { code: 'VALIDATION_ERROR', message: 'Document ID and amount are required' } });
+  if (!isValidId(document_id)) {
+    return res.status(400).json({ error: { code: 'VALIDATION_ERROR', message: 'Valid document ID is required' } });
   }
 
-  const payAmount = parseFloat(amount);
-  if (payAmount <= 0) {
+  if (amount === undefined || !isNonNegativeNumber(amount) || parseFloat(amount) <= 0) {
     return res.status(400).json({ error: { code: 'VALIDATION_ERROR', message: 'Payment amount must be greater than 0' } });
   }
 
+  const payAmount = parseFloat(amount);
+  const docId = parseInt(document_id, 10);
   const client = await pool.connect();
+
   try {
     await client.query('BEGIN');
 
-    const docRes = await client.query('SELECT * FROM documents WHERE id = $1', [parseInt(document_id)]);
+    const docRes = await client.query('SELECT * FROM documents WHERE id = $1', [docId]);
     if (docRes.rows.length === 0) {
       await client.query('ROLLBACK');
       return res.status(404).json({ error: { code: 'NOT_FOUND', message: 'Document not found' } });
@@ -57,16 +66,17 @@ router.post('/', async (req, res) => {
     const currentPaid = parseFloat(doc.amount_paid) || 0;
     const currentDue = parseFloat(doc.amount_due) || 0;
 
-    if (req.user.role === 'contact') {
+    // Security check for portal contacts: only pay their own customer invoices
+    if (req.user.role === ROLES.CONTACT) {
       if (doc.contact_id !== req.user.contact_id || doc.doc_type !== 'CUSTOMER_INVOICE') {
         await client.query('ROLLBACK');
         return res.status(403).json({ error: { code: 'FORBIDDEN', message: 'Not authorized to pay this document' } });
       }
     }
 
-    if (payAmount > currentDue) {
+    if (payAmount > currentDue + 0.01) {
       await client.query('ROLLBACK');
-      return res.status(400).json({ error: { code: 'VALIDATION_ERROR', message: 'Amount exceeds amount due' } });
+      return res.status(400).json({ error: { code: 'VALIDATION_ERROR', message: 'Payment amount exceeds amount due' } });
     }
 
     const newPaid = currentPaid + payAmount;

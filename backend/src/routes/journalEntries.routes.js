@@ -1,13 +1,14 @@
 // backend/src/routes/journalEntries.routes.js
 const express = require('express');
 const { pool } = require('../db');
-const { authenticateToken, requireRole } = require('../middleware/auth');
+const { authenticateToken, allowInternalUsers } = require('../middleware/auth');
+const { isValidId } = require('../middleware/validation');
 
 const router = express.Router();
 router.use(authenticateToken);
-router.use(requireRole('admin'));
+router.use(allowInternalUsers);
 
-// GET /journal-entries
+// GET /journal-entries - list journal entries
 router.get('/', async (req, res) => {
   const { journal_id, document_id } = req.query;
 
@@ -16,12 +17,16 @@ router.get('/', async (req, res) => {
     const params = [];
 
     if (journal_id) {
-      params.push(parseInt(journal_id));
-      query += ` AND journal_id = $${params.length}`;
+      if (isValidId(journal_id)) {
+        params.push(parseInt(journal_id, 10));
+        query += ` AND journal_id = $${params.length}`;
+      }
     }
     if (document_id) {
-      params.push(parseInt(document_id));
-      query += ` AND document_id = $${params.length}`;
+      if (isValidId(document_id)) {
+        params.push(parseInt(document_id, 10));
+        query += ` AND document_id = $${params.length}`;
+      }
     }
 
     query += ' ORDER BY id DESC';
@@ -30,28 +35,38 @@ router.get('/', async (req, res) => {
     const entryIds = result.rows.map(r => r.id);
     let allLines = [];
     if (entryIds.length > 0) {
-      const linesRes = await pool.query('SELECT * FROM journal_entry_lines WHERE journal_entry_id = ANY($1::int[]) ORDER BY id ASC', [entryIds]);
+      const linesRes = await pool.query(
+        'SELECT * FROM journal_entry_lines WHERE journal_entry_id = ANY($1::int[]) ORDER BY id ASC',
+        [entryIds]
+      );
       allLines = linesRes.rows;
     }
 
     const entries = result.rows.map(entry => ({
       ...entry,
-      lines: allLines.filter(l => l.journal_entry_id === entry.id).map(l => ({
-        ...l,
-        debit: parseFloat(l.debit) || 0,
-        credit: parseFloat(l.credit) || 0
-      }))
+      lines: allLines
+        .filter(l => l.journal_entry_id === entry.id)
+        .map(l => ({
+          ...l,
+          debit: parseFloat(l.debit) || 0,
+          credit: parseFloat(l.credit) || 0
+        }))
     }));
 
     res.json({ data: entries });
   } catch (err) {
+    console.error('Error fetching journal entries:', err);
     res.status(500).json({ error: { code: 'SERVER_ERROR', message: 'Failed to fetch journal entries' } });
   }
 });
 
-// GET /journal-entries/:id
+// GET /journal-entries/:id - single entry with lines
 router.get('/:id', async (req, res) => {
-  const id = parseInt(req.params.id);
+  if (!isValidId(req.params.id)) {
+    return res.status(400).json({ error: { code: 'VALIDATION_ERROR', message: 'Invalid journal entry ID' } });
+  }
+
+  const id = parseInt(req.params.id, 10);
   try {
     const entryRes = await pool.query('SELECT * FROM journal_entries WHERE id = $1', [id]);
     if (entryRes.rows.length === 0) {
@@ -59,7 +74,10 @@ router.get('/:id', async (req, res) => {
     }
 
     const entry = entryRes.rows[0];
-    const linesRes = await pool.query('SELECT * FROM journal_entry_lines WHERE journal_entry_id = $1 ORDER BY id ASC', [id]);
+    const linesRes = await pool.query(
+      'SELECT * FROM journal_entry_lines WHERE journal_entry_id = $1 ORDER BY id ASC',
+      [id]
+    );
 
     res.json({
       data: {
@@ -72,6 +90,7 @@ router.get('/:id', async (req, res) => {
       }
     });
   } catch (err) {
+    console.error('Error fetching journal entry:', err);
     res.status(500).json({ error: { code: 'SERVER_ERROR', message: 'Failed to fetch journal entry' } });
   }
 });

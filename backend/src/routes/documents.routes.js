@@ -2,6 +2,7 @@
 const express = require('express');
 const { pool } = require('../db');
 const { authenticateToken, requireRole, ROLES } = require('../middleware/auth');
+const { isValidDocType, isValidId, VALID_DOC_TYPES } = require('../middleware/validation');
 const { postDocumentEntry } = require('../services/postingEngine');
 
 const router = express.Router();
@@ -17,7 +18,7 @@ async function generateDocNumber(doc_type) {
   };
   const prefix = prefixMap[doc_type] || 'DOC';
   const countRes = await pool.query('SELECT COUNT(*) FROM documents WHERE doc_type = $1', [doc_type]);
-  const count = parseInt(countRes.rows[0].count) + 1;
+  const count = parseInt(countRes.rows[0].count, 10) + 1;
   const numPadded = String(count).padStart(4, '0');
   return `${prefix}/${year}/${numPadded}`;
 }
@@ -51,11 +52,11 @@ router.get('/', async (req, res) => {
     const params = [];
 
     // Security for portal contact: restrict strictly to their own contact_id
-    if (req.user.role === 'contact') {
+    if (req.user.role === ROLES.CONTACT) {
       params.push(req.user.contact_id);
       query += ` AND contact_id = $${params.length}`;
       if (doc_type) {
-        params.push(doc_type);
+        params.push(doc_type.toUpperCase());
         query += ` AND doc_type = $${params.length}`;
       }
       if (status) {
@@ -64,11 +65,11 @@ router.get('/', async (req, res) => {
       }
     } else {
       if (doc_type) {
-        params.push(doc_type);
+        params.push(doc_type.toUpperCase());
         query += ` AND doc_type = $${params.length}`;
       }
-      if (contact_id) {
-        params.push(parseInt(contact_id));
+      if (contact_id && isValidId(contact_id)) {
+        params.push(parseInt(contact_id, 10));
         query += ` AND contact_id = $${params.length}`;
       }
       if (status) {
@@ -83,7 +84,10 @@ router.get('/', async (req, res) => {
     const docIds = result.rows.map(r => r.id);
     let allLines = [];
     if (docIds.length > 0) {
-      const linesRes = await pool.query('SELECT * FROM document_lines WHERE document_id = ANY($1::int[]) ORDER BY id ASC', [docIds]);
+      const linesRes = await pool.query(
+        'SELECT * FROM document_lines WHERE document_id = ANY($1::int[]) ORDER BY id ASC',
+        [docIds]
+      );
       allLines = linesRes.rows;
     }
 
@@ -109,19 +113,25 @@ router.get('/', async (req, res) => {
 
 // GET /documents/:id
 router.get('/:id', async (req, res) => {
-  const id = parseInt(req.params.id);
+  if (!isValidId(req.params.id)) {
+    return res.status(400).json({ error: { code: 'VALIDATION_ERROR', message: 'Invalid document ID' } });
+  }
+
+  const id = parseInt(req.params.id, 10);
   try {
     const doc = await fetchDocumentWithLines(id);
     if (!doc) {
       return res.status(404).json({ error: { code: 'NOT_FOUND', message: 'Document not found' } });
     }
 
-    if (req.user.role === 'contact' && (doc.contact_id !== req.user.contact_id || doc.doc_type !== 'CUSTOMER_INVOICE')) {
+    // Security check for portal contacts: must belong to the logged-in contact
+    if (req.user.role === ROLES.CONTACT && doc.contact_id !== req.user.contact_id) {
       return res.status(403).json({ error: { code: 'FORBIDDEN', message: 'Not authorized to view this document' } });
     }
 
     res.json({ data: doc });
   } catch (err) {
+    console.error('Error fetching document:', err);
     res.status(500).json({ error: { code: 'SERVER_ERROR', message: 'Failed to fetch document' } });
   }
 });
@@ -130,36 +140,49 @@ router.get('/:id', async (req, res) => {
 router.post('/', requireRole([ROLES.ADMIN, ROLES.ACCOUNTANT]), async (req, res) => {
   const { doc_type, contact_id, doc_date, due_date, reference = '', lines = [] } = req.body;
 
-  if (!doc_type || !contact_id) {
-    return res.status(400).json({ error: { code: 'VALIDATION_ERROR', message: 'Document type and contact are required' } });
+  if (!isValidDocType(doc_type)) {
+    return res.status(400).json({
+      error: { code: 'VALIDATION_ERROR', message: `doc_type must be one of: ${VALID_DOC_TYPES.join(', ')}` }
+    });
+  }
+
+  if (!isValidId(contact_id)) {
+    return res.status(400).json({ error: { code: 'VALIDATION_ERROR', message: 'Valid contact_id is required' } });
   }
 
   const client = await pool.connect();
   try {
     await client.query('BEGIN');
 
-    const contactRes = await client.query('SELECT name FROM contacts WHERE id = $1', [parseInt(contact_id)]);
-    const contactName = contactRes.rows.length > 0 ? contactRes.rows[0].name : '';
+    const contactRes = await client.query('SELECT name FROM contacts WHERE id = $1', [parseInt(contact_id, 10)]);
+    if (contactRes.rows.length === 0) {
+      await client.query('ROLLBACK');
+      return res.status(404).json({ error: { code: 'NOT_FOUND', message: 'Contact not found' } });
+    }
+    const contactName = contactRes.rows[0].name;
 
     let total = 0;
     const computedLines = [];
     for (const l of lines) {
-      const pRes = l.product_id ? await client.query('SELECT name, sales_price FROM products WHERE id = $1', [parseInt(l.product_id)]) : { rows: [] };
-      const aRes = l.analytic_account_id ? await client.query('SELECT name FROM analytic_accounts WHERE id = $1', [parseInt(l.analytic_account_id)]) : { rows: [] };
+      const prodId = isValidId(l.product_id) ? parseInt(l.product_id, 10) : null;
+      const analyticId = isValidId(l.analytic_account_id) ? parseInt(l.analytic_account_id, 10) : null;
+
+      const pRes = prodId ? await client.query('SELECT name, sales_price FROM products WHERE id = $1', [prodId]) : { rows: [] };
+      const aRes = analyticId ? await client.query('SELECT name FROM analytic_accounts WHERE id = $1', [analyticId]) : { rows: [] };
 
       const prodName = pRes.rows.length > 0 ? pRes.rows[0].name : '';
       const analyticName = aRes.rows.length > 0 ? aRes.rows[0].name : '';
       const defaultPrice = pRes.rows.length > 0 ? parseFloat(pRes.rows[0].sales_price) : 0;
 
       const qty = parseFloat(l.qty) || 1;
-      const unit_price = parseFloat(l.unit_price) !== undefined && !isNaN(parseFloat(l.unit_price)) ? parseFloat(l.unit_price) : defaultPrice;
+      const unit_price = l.unit_price !== undefined && !isNaN(parseFloat(l.unit_price)) ? parseFloat(l.unit_price) : defaultPrice;
       const line_total = qty * unit_price;
       total += line_total;
 
       computedLines.push({
-        product_id: parseInt(l.product_id) || null,
+        product_id: prodId,
         product_name: prodName,
-        analytic_account_id: parseInt(l.analytic_account_id) || null,
+        analytic_account_id: analyticId,
         analytic_account_name: analyticName,
         qty,
         unit_price,
@@ -167,14 +190,14 @@ router.post('/', requireRole([ROLES.ADMIN, ROLES.ACCOUNTANT]), async (req, res) 
       });
     }
 
-    const number = await generateDocNumber(doc_type);
+    const number = await generateDocNumber(doc_type.toUpperCase());
     const dateStr = doc_date || new Date().toISOString().split('T')[0];
     const dueDateStr = due_date || new Date(Date.now() + 30 * 86400000).toISOString().split('T')[0];
 
     const docInsert = await client.query(
       `INSERT INTO documents (doc_type, number, contact_id, contact_name, doc_date, due_date, reference, status, total, amount_paid, amount_due)
        VALUES ($1, $2, $3, $4, $5, $6, $7, 'draft', $8, 0, $8) RETURNING *`,
-      [doc_type, number, parseInt(contact_id), contactName, dateStr, dueDateStr, reference, total]
+      [doc_type.toUpperCase(), number, parseInt(contact_id, 10), contactName, dateStr, dueDateStr, reference, total]
     );
     const newDoc = docInsert.rows[0];
 
@@ -209,7 +232,11 @@ router.post('/', requireRole([ROLES.ADMIN, ROLES.ACCOUNTANT]), async (req, res) 
 
 // PUT /documents/:id
 router.put('/:id', requireRole([ROLES.ADMIN, ROLES.ACCOUNTANT]), async (req, res) => {
-  const id = parseInt(req.params.id);
+  if (!isValidId(req.params.id)) {
+    return res.status(400).json({ error: { code: 'VALIDATION_ERROR', message: 'Invalid document ID' } });
+  }
+
+  const id = parseInt(req.params.id, 10);
   const { contact_id, doc_date, due_date, reference, lines } = req.body;
 
   const client = await pool.connect();
@@ -231,7 +258,11 @@ router.put('/:id', requireRole([ROLES.ADMIN, ROLES.ACCOUNTANT]), async (req, res
     let contactName = existing.contact_name;
     let parsedContactId = existing.contact_id;
     if (contact_id) {
-      parsedContactId = parseInt(contact_id);
+      if (!isValidId(contact_id)) {
+        await client.query('ROLLBACK');
+        return res.status(400).json({ error: { code: 'VALIDATION_ERROR', message: 'Invalid contact_id' } });
+      }
+      parsedContactId = parseInt(contact_id, 10);
       const cRes = await client.query('SELECT name FROM contacts WHERE id = $1', [parsedContactId]);
       if (cRes.rows.length > 0) contactName = cRes.rows[0].name;
     }
@@ -241,27 +272,30 @@ router.put('/:id', requireRole([ROLES.ADMIN, ROLES.ACCOUNTANT]), async (req, res
       await client.query('DELETE FROM document_lines WHERE document_id = $1', [id]);
       total = 0;
       for (const l of lines) {
-        const pRes = l.product_id ? await client.query('SELECT name, sales_price FROM products WHERE id = $1', [parseInt(l.product_id)]) : { rows: [] };
-        const aRes = l.analytic_account_id ? await client.query('SELECT name FROM analytic_accounts WHERE id = $1', [parseInt(l.analytic_account_id)]) : { rows: [] };
+        const prodId = isValidId(l.product_id) ? parseInt(l.product_id, 10) : null;
+        const analyticId = isValidId(l.analytic_account_id) ? parseInt(l.analytic_account_id, 10) : null;
+
+        const pRes = prodId ? await client.query('SELECT name, sales_price FROM products WHERE id = $1', [prodId]) : { rows: [] };
+        const aRes = analyticId ? await client.query('SELECT name FROM analytic_accounts WHERE id = $1', [analyticId]) : { rows: [] };
 
         const prodName = pRes.rows.length > 0 ? pRes.rows[0].name : '';
         const analyticName = aRes.rows.length > 0 ? aRes.rows[0].name : '';
         const defaultPrice = pRes.rows.length > 0 ? parseFloat(pRes.rows[0].sales_price) : 0;
 
         const qty = parseFloat(l.qty) || 1;
-        const unit_price = parseFloat(l.unit_price) !== undefined && !isNaN(parseFloat(l.unit_price)) ? parseFloat(l.unit_price) : defaultPrice;
+        const unit_price = l.unit_price !== undefined && !isNaN(parseFloat(l.unit_price)) ? parseFloat(l.unit_price) : defaultPrice;
         const line_total = qty * unit_price;
         total += line_total;
 
         await client.query(
           `INSERT INTO document_lines (document_id, product_id, product_name, analytic_account_id, analytic_account_name, qty, unit_price, line_total)
            VALUES ($1, $2, $3, $4, $5, $6, $7, $8)`,
-          [id, parseInt(l.product_id) || null, prodName, parseInt(l.analytic_account_id) || null, analyticName, qty, unit_price, line_total]
+          [id, prodId, prodName, analyticId, analyticName, qty, unit_price, line_total]
         );
       }
     }
 
-    const updateRes = await client.query(
+    await client.query(
       `UPDATE documents SET
         contact_id = $1, contact_name = $2, doc_date = $3, due_date = $4, reference = $5,
         total = $6, amount_due = $6 - amount_paid
@@ -291,7 +325,11 @@ router.put('/:id', requireRole([ROLES.ADMIN, ROLES.ACCOUNTANT]), async (req, res
 
 // POST /documents/:id/confirm
 router.post('/:id/confirm', requireRole([ROLES.ADMIN, ROLES.ACCOUNTANT]), async (req, res) => {
-  const id = parseInt(req.params.id);
+  if (!isValidId(req.params.id)) {
+    return res.status(400).json({ error: { code: 'VALIDATION_ERROR', message: 'Invalid document ID' } });
+  }
+
+  const id = parseInt(req.params.id, 10);
   try {
     const doc = await fetchDocumentWithLines(id);
     if (!doc) {
@@ -325,7 +363,11 @@ router.post('/:id/confirm', requireRole([ROLES.ADMIN, ROLES.ACCOUNTANT]), async 
 
 // POST /documents/:id/convert
 router.post('/:id/convert', requireRole([ROLES.ADMIN, ROLES.ACCOUNTANT]), async (req, res) => {
-  const id = parseInt(req.params.id);
+  if (!isValidId(req.params.id)) {
+    return res.status(400).json({ error: { code: 'VALIDATION_ERROR', message: 'Invalid document ID' } });
+  }
+
+  const id = parseInt(req.params.id, 10);
   try {
     const sourceDoc = await fetchDocumentWithLines(id);
     if (!sourceDoc) {
@@ -384,6 +426,7 @@ router.post('/:id/convert', requireRole([ROLES.ADMIN, ROLES.ACCOUNTANT]), async 
       client.release();
     }
   } catch (err) {
+    console.error('Error converting document:', err);
     res.status(500).json({ error: { code: 'SERVER_ERROR', message: 'Failed to convert document' } });
   }
 });

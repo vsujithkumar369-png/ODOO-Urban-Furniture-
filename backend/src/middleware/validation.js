@@ -30,10 +30,44 @@ function isNonNegativeNumber(val) {
   return !isNaN(num) && num >= 0;
 }
 
+function isValidId(id) {
+  const num = parseInt(id, 10);
+  return !isNaN(num) && num > 0;
+}
+
+function isValidDate(dateStr) {
+  if (!dateStr || typeof dateStr !== 'string') return false;
+  const d = new Date(dateStr);
+  return !isNaN(d.getTime());
+}
+
+const VALID_DOC_TYPES = ['PO', 'SO', 'VENDOR_BILL', 'CUSTOMER_INVOICE'];
+function isValidDocType(type) {
+  return typeof type === 'string' && VALID_DOC_TYPES.includes(type.toUpperCase());
+}
+
+const VALID_ACCOUNT_TYPES = ['asset', 'liability', 'capital', 'income', 'expense'];
+function isValidAccountType(type) {
+  return typeof type === 'string' && VALID_ACCOUNT_TYPES.includes(type.toLowerCase());
+}
+
+const VALID_JOURNAL_TYPES = ['sales', 'purchase', 'bank', 'cash', 'general'];
+function isValidJournalType(type) {
+  return typeof type === 'string' && VALID_JOURNAL_TYPES.includes(type.toLowerCase());
+}
+
 module.exports = {
   isValidLoginId,
   isValidEmail,
   isValidPassword,
   isValidPhone,
-  isNonNegativeNumber
+  isNonNegativeNumber,
+  isValidId,
+  isValidDate,
+  isValidDocType,
+  isValidAccountType,
+  isValidJournalType,
+  VALID_DOC_TYPES,
+  VALID_ACCOUNT_TYPES,
+  VALID_JOURNAL_TYPES
 };

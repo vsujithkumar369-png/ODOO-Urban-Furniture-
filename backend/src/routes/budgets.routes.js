@@ -1,10 +1,12 @@
 // backend/src/routes/budgets.routes.js
 const express = require('express');
 const { pool } = require('../db');
-const { authenticateToken, requireRole, ROLES } = require('../middleware/auth');
+const { authenticateToken, requireRole, allowInternalUsers, ROLES } = require('../middleware/auth');
+const { isValidId, isNonNegativeNumber } = require('../middleware/validation');
 
 const router = express.Router();
 router.use(authenticateToken);
+router.use(allowInternalUsers);
 
 async function computeBudgetFields(budget) {
   const committed = parseFloat(budget.committed_amount) || 0;
@@ -49,13 +51,18 @@ router.get('/', async (req, res) => {
     const budgetsWithComputed = await Promise.all(result.rows.map(computeBudgetFields));
     res.json({ data: budgetsWithComputed });
   } catch (err) {
+    console.error('Error fetching budgets:', err);
     res.status(500).json({ error: { code: 'SERVER_ERROR', message: 'Failed to fetch budgets' } });
   }
 });
 
 // GET /budgets/:id
 router.get('/:id', async (req, res) => {
-  const id = parseInt(req.params.id);
+  if (!isValidId(req.params.id)) {
+    return res.status(400).json({ error: { code: 'VALIDATION_ERROR', message: 'Invalid budget ID' } });
+  }
+
+  const id = parseInt(req.params.id, 10);
   try {
     const result = await pool.query('SELECT * FROM budgets WHERE id = $1', [id]);
     if (result.rows.length === 0) {
@@ -64,13 +71,18 @@ router.get('/:id', async (req, res) => {
     const computed = await computeBudgetFields(result.rows[0]);
     res.json({ data: computed });
   } catch (err) {
+    console.error('Error fetching budget:', err);
     res.status(500).json({ error: { code: 'SERVER_ERROR', message: 'Failed to fetch budget' } });
   }
 });
 
 // GET /budgets/:id/achieved-documents
 router.get('/:id/achieved-documents', async (req, res) => {
-  const id = parseInt(req.params.id);
+  if (!isValidId(req.params.id)) {
+    return res.status(400).json({ error: { code: 'VALIDATION_ERROR', message: 'Invalid budget ID' } });
+  }
+
+  const id = parseInt(req.params.id, 10);
   try {
     const budgetRes = await pool.query('SELECT * FROM budgets WHERE id = $1', [id]);
     if (budgetRes.rows.length === 0) {
@@ -95,6 +107,7 @@ router.get('/:id/achieved-documents', async (req, res) => {
     }));
     res.json({ data: docs });
   } catch (err) {
+    console.error('Error fetching achieved documents:', err);
     res.status(500).json({ error: { code: 'SERVER_ERROR', message: 'Failed to fetch achieved documents' } });
   }
 });
@@ -102,24 +115,32 @@ router.get('/:id/achieved-documents', async (req, res) => {
 // POST /budgets
 router.post('/', requireRole([ROLES.ADMIN, ROLES.ACCOUNTANT]), async (req, res) => {
   const { name, start_date, end_date, analytic_account_id, type = 'expense', responsible, committed_amount } = req.body;
-  if (!name || !start_date || !end_date || !analytic_account_id) {
-    return res.status(400).json({ error: { code: 'VALIDATION_ERROR', message: 'Missing required budget fields' } });
+  if (!name || typeof name !== 'string' || !name.trim()) {
+    return res.status(400).json({ error: { code: 'VALIDATION_ERROR', message: 'Budget name is required' } });
+  }
+
+  if (!start_date || !end_date) {
+    return res.status(400).json({ error: { code: 'VALIDATION_ERROR', message: 'Start date and end date are required' } });
+  }
+
+  if (!isValidId(analytic_account_id)) {
+    return res.status(400).json({ error: { code: 'VALIDATION_ERROR', message: 'Valid analytic account ID is required' } });
   }
 
   try {
-    const analyticRes = await pool.query('SELECT name FROM analytic_accounts WHERE id = $1', [parseInt(analytic_account_id)]);
+    const analyticRes = await pool.query('SELECT name FROM analytic_accounts WHERE id = $1', [parseInt(analytic_account_id, 10)]);
     const analyticName = analyticRes.rows.length > 0 ? analyticRes.rows[0].name : '';
 
     const insertRes = await pool.query(
       `INSERT INTO budgets (name, start_date, end_date, analytic_account_id, analytic_account_name, type, responsible, committed_amount, status, revision_of_id)
        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10) RETURNING *`,
       [
-        name,
+        name.trim(),
         start_date,
         end_date,
-        parseInt(analytic_account_id),
+        parseInt(analytic_account_id, 10),
         analyticName,
-        type,
+        type || 'expense',
         responsible || req.user.name,
         parseFloat(committed_amount) || 0,
         'draft',
@@ -130,13 +151,18 @@ router.post('/', requireRole([ROLES.ADMIN, ROLES.ACCOUNTANT]), async (req, res) 
     const computed = await computeBudgetFields(insertRes.rows[0]);
     res.status(201).json({ data: computed });
   } catch (err) {
+    console.error('Error creating budget:', err);
     res.status(500).json({ error: { code: 'SERVER_ERROR', message: 'Failed to create budget' } });
   }
 });
 
 // PUT /budgets/:id
 router.put('/:id', requireRole([ROLES.ADMIN, ROLES.ACCOUNTANT]), async (req, res) => {
-  const id = parseInt(req.params.id);
+  if (!isValidId(req.params.id)) {
+    return res.status(400).json({ error: { code: 'VALIDATION_ERROR', message: 'Invalid budget ID' } });
+  }
+
+  const id = parseInt(req.params.id, 10);
   const { name, start_date, end_date, analytic_account_id, type, responsible, committed_amount } = req.body;
 
   try {
@@ -150,9 +176,11 @@ router.put('/:id', requireRole([ROLES.ADMIN, ROLES.ACCOUNTANT]), async (req, res
     let parsedAnalyticId = cur.analytic_account_id;
 
     if (analytic_account_id !== undefined) {
-      parsedAnalyticId = parseInt(analytic_account_id);
-      const aRes = await pool.query('SELECT name FROM analytic_accounts WHERE id = $1', [parsedAnalyticId]);
-      if (aRes.rows.length > 0) analyticName = aRes.rows[0].name;
+      if (isValidId(analytic_account_id)) {
+        parsedAnalyticId = parseInt(analytic_account_id, 10);
+        const aRes = await pool.query('SELECT name FROM analytic_accounts WHERE id = $1', [parsedAnalyticId]);
+        if (aRes.rows.length > 0) analyticName = aRes.rows[0].name;
+      }
     }
 
     const updateRes = await pool.query(
@@ -161,7 +189,7 @@ router.put('/:id', requireRole([ROLES.ADMIN, ROLES.ACCOUNTANT]), async (req, res
         type = $6, responsible = $7, committed_amount = $8
        WHERE id = $9 RETURNING *`,
       [
-        name || cur.name,
+        name && typeof name === 'string' ? name.trim() : cur.name,
         start_date || cur.start_date,
         end_date || cur.end_date,
         parsedAnalyticId,
@@ -176,13 +204,18 @@ router.put('/:id', requireRole([ROLES.ADMIN, ROLES.ACCOUNTANT]), async (req, res
     const computed = await computeBudgetFields(updateRes.rows[0]);
     res.json({ data: computed });
   } catch (err) {
+    console.error('Error updating budget:', err);
     res.status(500).json({ error: { code: 'SERVER_ERROR', message: 'Failed to update budget' } });
   }
 });
 
 // POST /budgets/:id/confirm
 router.post('/:id/confirm', requireRole([ROLES.ADMIN, ROLES.ACCOUNTANT]), async (req, res) => {
-  const id = parseInt(req.params.id);
+  if (!isValidId(req.params.id)) {
+    return res.status(400).json({ error: { code: 'VALIDATION_ERROR', message: 'Invalid budget ID' } });
+  }
+
+  const id = parseInt(req.params.id, 10);
   try {
     const updateRes = await pool.query(
       "UPDATE budgets SET status = 'confirmed' WHERE id = $1 RETURNING *",
@@ -194,13 +227,18 @@ router.post('/:id/confirm', requireRole([ROLES.ADMIN, ROLES.ACCOUNTANT]), async 
     const computed = await computeBudgetFields(updateRes.rows[0]);
     res.json({ data: computed });
   } catch (err) {
+    console.error('Error confirming budget:', err);
     res.status(500).json({ error: { code: 'SERVER_ERROR', message: 'Failed to confirm budget' } });
   }
 });
 
 // POST /budgets/:id/revise
 router.post('/:id/revise', requireRole([ROLES.ADMIN, ROLES.ACCOUNTANT]), async (req, res) => {
-  const id = parseInt(req.params.id);
+  if (!isValidId(req.params.id)) {
+    return res.status(400).json({ error: { code: 'VALIDATION_ERROR', message: 'Invalid budget ID' } });
+  }
+
+  const id = parseInt(req.params.id, 10);
   try {
     const budgetRes = await pool.query('SELECT * FROM budgets WHERE id = $1', [id]);
     if (budgetRes.rows.length === 0) {
@@ -228,6 +266,7 @@ router.post('/:id/revise', requireRole([ROLES.ADMIN, ROLES.ACCOUNTANT]), async (
     const computed = await computeBudgetFields(insertRes.rows[0]);
     res.status(201).json({ data: computed });
   } catch (err) {
+    console.error('Error revising budget:', err);
     res.status(500).json({ error: { code: 'SERVER_ERROR', message: 'Failed to revise budget' } });
   }
 });
