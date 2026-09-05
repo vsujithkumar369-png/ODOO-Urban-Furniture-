@@ -3,7 +3,7 @@ import { useState, useEffect } from 'react';
 import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
 import { login as loginApi, signup as signupApi } from '../../api/auth';
-import { Eye, EyeOff, LogIn, UserPlus, Shield, User, Briefcase } from 'lucide-react';
+import { Eye, EyeOff, LogIn, UserPlus, Shield, Briefcase, Info } from 'lucide-react';
 import toast from 'react-hot-toast';
 
 const PWD_RE = /^(?=.*[a-z])(?=.*[A-Z])(?=.*[^a-zA-Z0-9]).{8,}$/;
@@ -57,7 +57,7 @@ export default function Login() {
     }
   }, [setLoginValue]);
 
-  // Handle Sign In (NO role selection required)
+  // Handle Sign In (Used by both internal staff and customers with generated credentials)
   const onLoginSubmit = async (values) => {
     setLoading(true);
     try {
@@ -82,7 +82,7 @@ export default function Login() {
     }
   };
 
-  // Handle Account Creation (Role is selected HERE only)
+  // Handle Internal Staff Registration (Admin / Accountant only)
   const onSignupSubmit = async (values) => {
     setLoading(true);
     try {
@@ -91,14 +91,14 @@ export default function Login() {
         login_id: values.login_id,
         email: values.email,
         password: values.password,
-        role: values.role, // role chosen during account creation
+        role: values.role,
       });
 
       // Save the created login_id for immediate convenience
       localStorage.setItem('uf_remembered_login_id', values.login_id);
       setLoginValue('login_id', values.login_id);
 
-      toast.success(`Account created with role: ${values.role}! Please sign in.`);
+      toast.success(`Account created as ${values.role === 'admin' ? 'Administrator' : 'Accountant'}! Please sign in.`);
       resetSignup();
       setTab('login');
     } catch (err) {
@@ -123,7 +123,7 @@ export default function Login() {
 
         {/* Auth Card */}
         <div className="card p-6 sm:p-8 shadow-xl border border-gray-200/80 dark:border-gray-800">
-          {/* Tab Switcher: Sign In vs Create Account */}
+          {/* Tab Switcher: Sign In vs Staff Registration */}
           <div className="flex rounded-lg bg-gray-100 dark:bg-gray-800/80 p-1 mb-6">
             <button
               type="button"
@@ -147,7 +147,7 @@ export default function Login() {
               }`}
             >
               <UserPlus size={15} />
-              Create Account
+              Staff Register
             </button>
           </div>
 
@@ -157,7 +157,15 @@ export default function Login() {
               <div className="mb-4">
                 <h2 className="text-base font-semibold text-gray-800 dark:text-gray-200">Sign in to your account</h2>
                 <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">
-                  Your role & permissions will be retrieved automatically.
+                  Internal staff and customer portal access.
+                </p>
+              </div>
+
+              {/* Notice for Customers */}
+              <div className="mb-4 p-3 rounded-lg bg-blue-50 dark:bg-blue-950/30 border border-blue-200 dark:border-blue-800/60 flex items-start gap-2.5">
+                <Info size={16} className="text-blue-600 dark:text-blue-400 shrink-0 mt-0.5" />
+                <p className="text-xs text-blue-800 dark:text-blue-300 leading-relaxed">
+                  <strong>Customer / Client?</strong> You do not need to register. Your Login ID is generated and provided by your accountant upon order placement.
                 </p>
               </div>
 
@@ -171,12 +179,12 @@ export default function Login() {
                 {/* Login ID */}
                 <div>
                   <label className="label" htmlFor="login_id">
-                    Login ID <span className="text-red-500">*</span>
+                    Login ID / Customer Email <span className="text-red-500">*</span>
                   </label>
                   <input
                     id="login_id"
                     className={`input ${loginErrors.login_id ? 'input-error' : ''}`}
-                    placeholder="Enter your login ID"
+                    placeholder="Enter your login ID or registered email"
                     {...registerLogin('login_id', { required: 'Login ID is required' })}
                   />
                   {loginErrors.login_id && <p className="mt-1 text-xs text-red-500">{loginErrors.login_id.message}</p>}
@@ -234,13 +242,21 @@ export default function Login() {
             </div>
           )}
 
-          {/* ================= CREATE ACCOUNT FORM ================= */}
+          {/* ================= STAFF ACCOUNT CREATION ================= */}
           {tab === 'signup' && (
             <div>
               <div className="mb-4">
-                <h2 className="text-base font-semibold text-gray-800 dark:text-gray-200">Create new account</h2>
+                <h2 className="text-base font-semibold text-gray-800 dark:text-gray-200">Staff Account Registration</h2>
                 <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">
-                  Select your role below during account creation.
+                  For internal invoicing & accounting personnel only.
+                </p>
+              </div>
+
+              {/* Notice that Customers do not register here */}
+              <div className="mb-4 p-3 rounded-lg bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-800/60 flex items-start gap-2.5">
+                <Info size={16} className="text-amber-600 dark:text-amber-400 shrink-0 mt-0.5" />
+                <p className="text-xs text-amber-800 dark:text-amber-300 leading-relaxed">
+                  <strong>Notice:</strong> Customer accounts cannot self-register here. Customer login credentials are generated by the accountant upon order placement.
                 </p>
               </div>
 
@@ -254,7 +270,7 @@ export default function Login() {
                 {/* Full Name */}
                 <div>
                   <label className="label" htmlFor="signup-name">
-                    Full Name <span className="text-red-500">*</span>
+                    Staff Name <span className="text-red-500">*</span>
                   </label>
                   <input
                     id="signup-name"
@@ -265,14 +281,14 @@ export default function Login() {
                   {signupErrors.name && <p className="mt-1 text-xs text-red-500">{signupErrors.name.message}</p>}
                 </div>
 
-                {/* Role Selection (ONLY during account creation) */}
+                {/* Role Selection (Staff Roles Only) */}
                 <div>
                   <label className="label">
-                    Select Account Role <span className="text-red-500">*</span>
+                    Select Staff Role <span className="text-red-500">*</span>
                   </label>
-                  <div className="grid grid-cols-3 gap-2">
+                  <div className="grid grid-cols-2 gap-2.5">
                     <label
-                      className={`flex flex-col items-center justify-center p-2.5 rounded-lg border cursor-pointer transition-all text-center ${
+                      className={`flex flex-col items-center justify-center p-3 rounded-lg border cursor-pointer transition-all text-center ${
                         selectedRole === 'admin'
                           ? 'border-primary-500 bg-primary-50/60 dark:bg-primary-950/30 text-primary-700 dark:text-primary-300 font-medium ring-1 ring-primary-500'
                           : 'border-gray-200 dark:border-gray-700 text-gray-600 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-800'
@@ -284,12 +300,13 @@ export default function Login() {
                         className="sr-only"
                         {...registerSignup('role', { required: 'Please select a role' })}
                       />
-                      <Shield size={18} className="mb-1 text-primary-600 dark:text-primary-400" />
-                      <span className="text-xs">Admin</span>
+                      <Shield size={20} className="mb-1 text-primary-600 dark:text-primary-400" />
+                      <span className="text-xs font-semibold">Administrator</span>
+                      <span className="text-[10px] text-gray-400 mt-0.5">Full ERP & Management</span>
                     </label>
 
                     <label
-                      className={`flex flex-col items-center justify-center p-2.5 rounded-lg border cursor-pointer transition-all text-center ${
+                      className={`flex flex-col items-center justify-center p-3 rounded-lg border cursor-pointer transition-all text-center ${
                         selectedRole === 'accountant'
                           ? 'border-primary-500 bg-primary-50/60 dark:bg-primary-950/30 text-primary-700 dark:text-primary-300 font-medium ring-1 ring-primary-500'
                           : 'border-gray-200 dark:border-gray-700 text-gray-600 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-800'
@@ -301,38 +318,17 @@ export default function Login() {
                         className="sr-only"
                         {...registerSignup('role', { required: 'Please select a role' })}
                       />
-                      <Briefcase size={18} className="mb-1 text-blue-600 dark:text-blue-400" />
-                      <span className="text-xs">Accountant</span>
-                    </label>
-
-                    <label
-                      className={`flex flex-col items-center justify-center p-2.5 rounded-lg border cursor-pointer transition-all text-center ${
-                        selectedRole === 'contact'
-                          ? 'border-primary-500 bg-primary-50/60 dark:bg-primary-950/30 text-primary-700 dark:text-primary-300 font-medium ring-1 ring-primary-500'
-                          : 'border-gray-200 dark:border-gray-700 text-gray-600 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-800'
-                      }`}
-                    >
-                      <input
-                        type="radio"
-                        value="contact"
-                        className="sr-only"
-                        {...registerSignup('role', { required: 'Please select a role' })}
-                      />
-                      <User size={18} className="mb-1 text-emerald-600 dark:text-emerald-400" />
-                      <span className="text-xs">Portal / Client</span>
+                      <Briefcase size={20} className="mb-1 text-blue-600 dark:text-blue-400" />
+                      <span className="text-xs font-semibold">Accountant</span>
+                      <span className="text-[10px] text-gray-400 mt-0.5">Accounting & Reports</span>
                     </label>
                   </div>
-                  <p className="mt-1 text-[11px] text-gray-500 dark:text-gray-400">
-                    {selectedRole === 'admin' && 'Full ERP access: Sales, Purchases, Accounting, Reports.'}
-                    {selectedRole === 'accountant' && 'Accounting access: Journal Entries, Budgets, and Financial Reports.'}
-                    {selectedRole === 'contact' && 'Portal access: View invoices and make online payments.'}
-                  </p>
                 </div>
 
                 {/* Login ID */}
                 <div>
                   <label className="label" htmlFor="signup-login_id">
-                    Login ID <span className="text-red-500">*</span>
+                    Staff Login ID <span className="text-red-500">*</span>
                   </label>
                   <input
                     id="signup-login_id"
@@ -350,13 +346,13 @@ export default function Login() {
                 {/* Email */}
                 <div>
                   <label className="label" htmlFor="signup-email">
-                    Email ID <span className="text-red-500">*</span>
+                    Official Email <span className="text-red-500">*</span>
                   </label>
                   <input
                     id="signup-email"
                     type="email"
                     className={`input ${signupErrors.email ? 'input-error' : ''}`}
-                    placeholder="email@example.com"
+                    placeholder="name@urbanfurniture.com"
                     {...registerSignup('email', {
                       required: 'Email required',
                       pattern: { value: /\S+@\S+\.\S+/, message: 'Invalid email' },
@@ -375,7 +371,7 @@ export default function Login() {
                       id="signup-password"
                       type={showSignupPwd ? 'text' : 'password'}
                       className={`input pr-10 ${signupErrors.password ? 'input-error' : ''}`}
-                      placeholder="8+ chars, uppercase, lowercase, special char"
+                      placeholder="8+ chars, upper, lower, special"
                       {...registerSignup('password', {
                         required: 'Password required',
                         validate: (v) => PWD_RE.test(v) || 'Must have 8+ chars, uppercase, lowercase, special character',
@@ -425,7 +421,7 @@ export default function Login() {
 
                 <button type="submit" className="btn-primary w-full justify-center py-2.5" disabled={loading} id="signup-btn">
                   <UserPlus size={16} />
-                  {loading ? 'Creating account...' : 'Create Account'}
+                  {loading ? 'Creating staff account...' : 'Create Staff Account'}
                 </button>
               </form>
             </div>

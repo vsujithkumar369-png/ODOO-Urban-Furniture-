@@ -2,7 +2,7 @@ import { useForm } from 'react-hook-form';
 import { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { signup as signupApi } from '../../api/auth';
-import { Eye, EyeOff, UserPlus, Shield, User, Briefcase } from 'lucide-react';
+import { Eye, EyeOff, UserPlus, Shield, Briefcase, Info } from 'lucide-react';
 import toast from 'react-hot-toast';
 
 const PWD_RE = /^(?=.*[a-z])(?=.*[A-Z])(?=.*[^a-zA-Z0-9]).{8,}$/;
@@ -42,7 +42,7 @@ export default function Signup() {
       // Remember login ID for convenient sign in
       localStorage.setItem('uf_remembered_login_id', values.login_id);
 
-      toast.success(`Account created with role: ${values.role}! Please sign in.`);
+      toast.success(`Account created as ${values.role === 'admin' ? 'Administrator' : 'Accountant'}! Please sign in.`);
       navigate('/login');
     } catch (err) {
       const msg = err.response?.data?.error?.message ?? 'Signup failed.';
@@ -59,11 +59,19 @@ export default function Signup() {
           <div className="inline-flex items-center justify-center w-14 h-14 rounded-2xl bg-primary-600 shadow-lg shadow-primary-600/30 mb-3">
             <span className="text-white font-bold text-xl">UF</span>
           </div>
-          <h1 className="text-2xl font-bold text-gray-900 dark:text-gray-100">Create Account</h1>
-          <p className="text-sm text-gray-500 dark:text-gray-400 mt-0.5">Select your role to register</p>
+          <h1 className="text-2xl font-bold text-gray-900 dark:text-gray-100">Staff Registration</h1>
+          <p className="text-sm text-gray-500 dark:text-gray-400 mt-0.5">Internal accounting & management access</p>
         </div>
 
         <div className="card p-6 sm:p-8 shadow-xl border border-gray-200/80 dark:border-gray-800">
+          {/* Customer Notice */}
+          <div className="mb-4 p-3 rounded-lg bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-800/60 flex items-start gap-2.5">
+            <Info size={16} className="text-amber-600 dark:text-amber-400 shrink-0 mt-0.5" />
+            <p className="text-xs text-amber-800 dark:text-amber-300 leading-relaxed">
+              <strong>Customer / Ordering Client?</strong> Customers do not have a public registration page. Your Login ID is generated and provided by your accountant upon order placement.
+            </p>
+          </div>
+
           {errors.root && (
             <div className="mb-4 px-3.5 py-2.5 rounded-lg bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 text-sm text-red-700 dark:text-red-400">
               {errors.root.message}
@@ -73,20 +81,20 @@ export default function Signup() {
           <form onSubmit={handleSubmit(onSubmit)} className="space-y-4" noValidate>
             {/* Name */}
             <div>
-              <label className="label" htmlFor="name">Full Name <span className="text-red-500">*</span></label>
+              <label className="label" htmlFor="name">Staff Name <span className="text-red-500">*</span></label>
               <input id="name" className={`input ${errors.name ? 'input-error' : ''}`} placeholder="e.g. Priya Shah"
                 {...register('name', { required: 'Name is required' })} />
               {errors.name && <p className="mt-1 text-xs text-red-500">{errors.name.message}</p>}
             </div>
 
-            {/* Role Selection (ONLY while creating account) */}
+            {/* Role Selection (Staff Only) */}
             <div>
               <label className="label">
-                Select Account Role <span className="text-red-500">*</span>
+                Select Staff Role <span className="text-red-500">*</span>
               </label>
-              <div className="grid grid-cols-3 gap-2">
+              <div className="grid grid-cols-2 gap-2.5">
                 <label
-                  className={`flex flex-col items-center justify-center p-2.5 rounded-lg border cursor-pointer transition-all text-center ${
+                  className={`flex flex-col items-center justify-center p-3 rounded-lg border cursor-pointer transition-all text-center ${
                     selectedRole === 'admin'
                       ? 'border-primary-500 bg-primary-50/60 dark:bg-primary-950/30 text-primary-700 dark:text-primary-300 font-medium ring-1 ring-primary-500'
                       : 'border-gray-200 dark:border-gray-700 text-gray-600 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-800'
@@ -98,12 +106,12 @@ export default function Signup() {
                     className="sr-only"
                     {...register('role', { required: 'Please select a role' })}
                   />
-                  <Shield size={18} className="mb-1 text-primary-600 dark:text-primary-400" />
-                  <span className="text-xs">Admin</span>
+                  <Shield size={20} className="mb-1 text-primary-600 dark:text-primary-400" />
+                  <span className="text-xs font-semibold">Administrator</span>
                 </label>
 
                 <label
-                  className={`flex flex-col items-center justify-center p-2.5 rounded-lg border cursor-pointer transition-all text-center ${
+                  className={`flex flex-col items-center justify-center p-3 rounded-lg border cursor-pointer transition-all text-center ${
                     selectedRole === 'accountant'
                       ? 'border-primary-500 bg-primary-50/60 dark:bg-primary-950/30 text-primary-700 dark:text-primary-300 font-medium ring-1 ring-primary-500'
                       : 'border-gray-200 dark:border-gray-700 text-gray-600 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-800'
@@ -115,32 +123,15 @@ export default function Signup() {
                     className="sr-only"
                     {...register('role', { required: 'Please select a role' })}
                   />
-                  <Briefcase size={18} className="mb-1 text-blue-600 dark:text-blue-400" />
-                  <span className="text-xs">Accountant</span>
-                </label>
-
-                <label
-                  className={`flex flex-col items-center justify-center p-2.5 rounded-lg border cursor-pointer transition-all text-center ${
-                    selectedRole === 'contact'
-                      ? 'border-primary-500 bg-primary-50/60 dark:bg-primary-950/30 text-primary-700 dark:text-primary-300 font-medium ring-1 ring-primary-500'
-                      : 'border-gray-200 dark:border-gray-700 text-gray-600 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-800'
-                  }`}
-                >
-                  <input
-                    type="radio"
-                    value="contact"
-                    className="sr-only"
-                    {...register('role', { required: 'Please select a role' })}
-                  />
-                  <User size={18} className="mb-1 text-emerald-600 dark:text-emerald-400" />
-                  <span className="text-xs">Portal / Client</span>
+                  <Briefcase size={20} className="mb-1 text-blue-600 dark:text-blue-400" />
+                  <span className="text-xs font-semibold">Accountant</span>
                 </label>
               </div>
             </div>
 
             {/* Login ID */}
             <div>
-              <label className="label" htmlFor="login_id">Login ID <span className="text-red-500">*</span></label>
+              <label className="label" htmlFor="login_id">Staff Login ID <span className="text-red-500">*</span></label>
               <input id="login_id" className={`input ${errors.login_id ? 'input-error' : ''}`} placeholder="6–12 characters"
                 {...register('login_id', {
                   required: 'Login ID required',
@@ -152,8 +143,8 @@ export default function Signup() {
 
             {/* Email */}
             <div>
-              <label className="label" htmlFor="email">Email ID <span className="text-red-500">*</span></label>
-              <input id="email" type="email" className={`input ${errors.email ? 'input-error' : ''}`} placeholder="email@example.com"
+              <label className="label" htmlFor="email">Official Email <span className="text-red-500">*</span></label>
+              <input id="email" type="email" className={`input ${errors.email ? 'input-error' : ''}`} placeholder="name@urbanfurniture.com"
                 {...register('email', { required: 'Email required', pattern: { value: /\S+@\S+\.\S+/, message: 'Invalid email' } })} />
               {errors.email && <p className="mt-1 text-xs text-red-500">{errors.email.message}</p>}
             </div>
@@ -196,7 +187,7 @@ export default function Signup() {
 
             <button type="submit" className="btn-primary w-full justify-center py-2.5" disabled={loading} id="signup-btn">
               <UserPlus size={16} />
-              {loading ? 'Creating account...' : 'Create Account'}
+              {loading ? 'Creating staff account...' : 'Create Staff Account'}
             </button>
           </form>
 
