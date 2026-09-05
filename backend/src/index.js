@@ -1,1 +1,78 @@
-// Main backend entry point placeholder.
+// backend/src/index.js
+const express = require('express');
+const cors = require('cors');
+
+const authRoutes = require('./routes/auth.routes');
+const contactsRoutes = require('./routes/contacts.routes');
+const productsRoutes = require('./routes/products.routes');
+const coaRoutes = require('./routes/coa.routes');
+const journalsRoutes = require('./routes/journals.routes');
+const analyticsRoutes = require('./routes/analytics.routes');
+const budgetsRoutes = require('./routes/budgets.routes');
+const documentsRoutes = require('./routes/documents.routes');
+const paymentsRoutes = require('./routes/payments.routes');
+const journalEntriesRoutes = require('./routes/journalEntries.routes');
+const reportsRoutes = require('./routes/reports.routes');
+
+const app = express();
+const PORT = process.env.PORT || 3000;
+
+// Middleware
+app.use(cors());
+app.use(express.json());
+
+// Request logger for easy debugging
+app.use((req, res, next) => {
+  console.log(`[API] ${req.method} ${req.originalUrl}`);
+  next();
+});
+
+// Mount Routes under /api and root as fallback
+const apiRouter = express.Router();
+
+apiRouter.use('/auth', authRoutes);
+apiRouter.use('/contacts', contactsRoutes);
+apiRouter.use('/products', productsRoutes);
+apiRouter.use('/coa', coaRoutes);
+apiRouter.use('/journals', journalsRoutes);
+apiRouter.use('/analytics', analyticsRoutes);
+apiRouter.use('/budgets', budgetsRoutes);
+apiRouter.use('/documents', documentsRoutes);
+apiRouter.use('/payments', paymentsRoutes);
+apiRouter.use('/journal-entries', journalEntriesRoutes);
+apiRouter.use('/reports', reportsRoutes);
+
+// Mount both under /api and direct
+app.use('/api', apiRouter);
+app.use('/', apiRouter);
+
+// Health check endpoint
+app.get('/health', (req, res) => {
+  res.json({ status: 'ok', service: 'Urban Furniture Accounting API', timestamp: new Date().toISOString() });
+});
+
+// Global Error Handler
+app.use((err, req, res, next) => {
+  console.error('[Error]', err);
+  res.status(err.status || 500).json({
+    error: {
+      code: err.code || 'SERVER_ERROR',
+      message: err.message || 'Internal Server Error'
+    }
+  });
+});
+
+// 404 Handler
+app.use((req, res) => {
+  res.status(404).json({
+    error: {
+      code: 'NOT_FOUND',
+      message: `Route ${req.method} ${req.originalUrl} not found`
+    }
+  });
+});
+
+app.listen(PORT, () => {
+  console.log(`🚀 Urban Furniture Backend API running on http://localhost:${PORT}`);
+  console.log(`📑 Health check: http://localhost:${PORT}/health`);
+});
