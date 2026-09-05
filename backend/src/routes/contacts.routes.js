@@ -2,33 +2,13 @@
 const express = require('express');
 const bcrypt = require('bcrypt');
 const { pool } = require('../db');
-const { authenticateToken, requireRole, ROLES } = require('../middleware/auth');
+const { authenticateToken, requireRole, allowInternalUsers, ROLES } = require('../middleware/auth');
+const { isValidEmail, isValidPhone } = require('../middleware/validation');
 
 const router = express.Router();
 
-// Helper validation functions
-function isValidEmail(email) {
-  return typeof email === 'string' && /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
-}
-
-function isValidPhone(phone) {
-  if (!phone) return true; // Optional field
-  return typeof phone === 'string' && /^[0-9+\-\s()]{7,20}$/.test(phone);
-}
-
 // All contact routes require authentication
 router.use(authenticateToken);
-
-// Role guard for Contact Master internal endpoints (Contacts cannot access Contact Master)
-function allowInternalUsers(req, res, next) {
-  if (req.user.role === ROLES.CONTACT) {
-    return res.status(403).json({
-      error: { code: 'FORBIDDEN', message: 'Contact users are not authorized to access Contact Master APIs' }
-    });
-  }
-  next();
-}
-
 router.use(allowInternalUsers);
 
 // GET /api/contacts

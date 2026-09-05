@@ -1,1 +1,0 @@
-// Contacts controller placeholder.

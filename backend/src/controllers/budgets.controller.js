@@ -1,1 +1,0 @@
-// Budgets controller placeholder.

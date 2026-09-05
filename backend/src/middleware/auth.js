@@ -48,9 +48,27 @@ const ROLES = {
   CONTACT: 'contact'
 };
 
+/**
+ * Guard to block portal Contact users from internal master data endpoints.
+ */
+function allowInternalUsers(req, res, next) {
+  if (!req.user) {
+    return res.status(401).json({
+      error: { code: 'UNAUTHORIZED', message: 'Authentication required' }
+    });
+  }
+  if (req.user.role === ROLES.CONTACT) {
+    return res.status(403).json({
+      error: { code: 'FORBIDDEN', message: 'Contact users are not authorized to access internal master data APIs' }
+    });
+  }
+  next();
+}
+
 module.exports = {
   JWT_SECRET,
   ROLES,
   authenticateToken,
-  requireRole
+  requireRole,
+  allowInternalUsers
 };
